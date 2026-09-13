@@ -1,173 +1,322 @@
-# Roadmap and TODO
+# Roadmap & TODO
 
 This document tracks planned features, improvements, and known issues.
 
-## Version 0.2.0 (In Progress) ✅
-
-**Theme**: Progress tracking and crash recovery
-
-- [x] Add progress bars with time estimation
-- [x] Implement crash recovery with `--resume` flag
-- [x] State persistence in `.audit-state.json`
-- [x] Rich terminal UI with color-coded output
-- [x] Handle keyboard interrupts gracefully
-- [ ] Add comprehensive documentation
-- [ ] Create examples for common workflows
-- [ ] Release v0.2.0
-
-## Version 0.3.0 (Planned)
-
-**Theme**: Enhanced paraphrase detection
+## Version 0.3.0 (Q2 2025)
 
 ### High Priority
-- [ ] Add sequence-based similarity (e.g., longest common subsequence)
-- [ ] Implement sentence reordering detection
-- [ ] Add language-specific tokenization (separate CJK from English)
-- [ ] Improve "paraphrase" signal in priority classification
-- [ ] Add `--paraphrase-threshold` flag for custom sensitivity
+
+- [ ] **Sitemap.xml parsing**
+  - Auto-discover sitemap from robots.txt
+  - Parse sitemap index files
+  - Handle gzip-compressed sitemaps
+  - Respect priority and lastmod
+  - See: #TBD
+
+- [ ] **Canonical link validation**
+  - Detect missing canonical tags
+  - Find self-referential canonicals
+  - Check for canonical chains (A→B→C)
+  - Identify canonical conflicts
+  - Output: canonical-issues.csv
+  - See: #TBD
+
+- [ ] **robots.txt compliance**
+  - Parse robots.txt before crawling
+  - Respect Disallow directives
+  - Honor Crawl-delay
+  - Support wildcards and $ end anchor
+  - Log skipped URLs with reason
+  - See: #TBD
 
 ### Medium Priority
-- [ ] Add fuzzy matching for product codes and model numbers
-- [ ] Detect translated content (same meaning, different language)
-- [ ] Add n<5 template detection warning (avoid false removal)
-- [ ] Configurable P1/P2/P3 thresholds via CLI
 
-### Documentation
-- [ ] Add paraphrase detection examples
-- [ ] Document algorithm trade-offs
-- [ ] Add benchmarks against commercial tools
+- [ ] **Hreflang analysis**
+  - Detect missing return links
+  - Find language/region mismatches
+  - Validate alternate URLs exist
+  - Check for hreflang loops
+  - Output: hreflang-issues.csv
+  - See: #TBD
 
-## Version 0.4.0 (Planned)
+- [ ] **Enhanced paraphrase detection**
+  - Use difflib.SequenceMatcher for top candidates
+  - Detect sentence reordering
+  - Identify synonym substitution patterns
+  - Add paraphrase-specific priority level
+  - See: #TBD
 
-**Theme**: SEO-specific features
+- [ ] **Content quality metrics**
+  - Reading level (Flesch-Kincaid)
+  - Keyword density
+  - Internal/external link counts
+  - Image count and alt text coverage
+  - Output: quality-metrics.csv
+  - See: #TBD
 
-### Features
-- [ ] **Sitemap.xml parsing** - Discover URLs from sitemap instead of crawling
-  - [ ] Support nested sitemaps
-  - [ ] Handle sitemap index files
-  - [ ] Parse lastmod dates for freshness
-- [ ] **Canonical tag analysis**
-  - [ ] Detect canonical conflicts (A→B, B→A)
-  - [ ] Find self-canonicals with duplicates
-  - [ ] Report missing canonical tags
-- [ ] **Meta robots detection**
-  - [ ] Flag noindex pages in duplicate sets
-  - [ ] Detect indexation conflicts
-- [ ] **hreflang validation**
-  - [ ] Check for duplicate content across languages
-  - [ ] Validate hreflang reciprocity
-- [ ] **JavaScript rendering** (optional, via Playwright)
-  - [ ] `--render-js` flag for SPA/dynamic sites
-  - [ ] Configurable wait time for JS execution
-  - [ ] Screenshot capture for visual comparison
+### Low Priority
 
-### Improvements
-- [ ] Add `--exclude` patterns (regex) to skip certain URLs
-- [ ] Support robots.txt parsing
-- [ ] Add user-agent rotation
-- [ ] Respect crawl-delay directives
+- [ ] **Crawl politeness improvements**
+  - Exponential backoff on 429/503
+  - Respect Retry-After header
+  - Better User-Agent rotation
+  - See: #TBD
 
-## Version 0.5.0 (Future)
+- [ ] **Output format enhancements**
+  - XLSX export with formulas
+  - HTML report with interactive charts
+  - SQLite database option
+  - See: #TBD
 
-**Theme**: Scale and performance
+## Version 0.4.0 (Q3 2025)
 
-### Performance
-- [ ] Implement MinHash LSH for O(n) instead of O(n²) comparison
-- [ ] Add incremental audit mode (only new/changed pages)
-- [ ] Parallel processing with multiprocessing
-- [ ] Database backend option (SQLite) for large audits
-- [ ] Streaming output for very large page sets
+### High Priority
 
-### Scale
-- [ ] Support 500+ page audits efficiently
-- [ ] Add distributed crawling with worker nodes
-- [ ] Implement crawl budget management
-- [ ] Add memory-mapped file support for huge corpuses
+- [ ] **MinHash/LSH for O(n log n) comparison**
+  - Use datasketch library
+  - Configurable similarity threshold
+  - LSH index for fast candidate retrieval
+  - Fallback to exact comparison for high candidates
+  - Target: 5000+ pages in <10 minutes
+  - See: #TBD
 
-## Version 1.0.0 (Future)
+- [ ] **Incremental mode**
+  - Store page hashes in persistent DB
+  - Only fetch/compare changed pages
+  - Track page additions/deletions
+  - Output: changes-since-last-run.csv
+  - See: #TBD
 
-**Theme**: API and integrations
+- [ ] **REST API server**
+  - FastAPI-based HTTP server
+  - POST /audit with URL list
+  - GET /results/{audit_id}
+  - WebSocket for progress updates
+  - Optional feature, not required
+  - See: #TBD
 
-### API
-- [ ] REST API mode with `--serve` flag
-- [ ] WebSocket support for real-time progress
-- [ ] Swagger/OpenAPI documentation
-- [ ] Python SDK for programmatic access
-- [ ] Authentication and rate limiting
+### Medium Priority
 
-### Integrations
-- [ ] Webhook support for audit completion
-- [ ] Slack/Discord notifications
-- [ ] Google Search Console integration
-- [ ] Screaming Frog import/export
-- [ ] CSV diff mode (compare two audit runs)
+- [ ] **Web UI**
+  - React/Vue frontend
+  - Upload URL list or enter crawl seed
+  - Real-time progress updates
+  - Interactive duplicate explorer
+  - Filter/sort pairs by metric
+  - Export subsets to CSV
+  - See: #TBD
 
-### UI (Optional)
-- [ ] Web dashboard for visualization
-- [ ] Interactive similarity explorer
-- [ ] Heatmap of duplicate clusters
-- [ ] Export to Gephi/network analysis tools
+- [ ] **Database backend**
+  - PostgreSQL support for large audits
+  - Store historical audit results
+  - Track changes over time
+  - Query API for trend analysis
+  - Optional feature, not required
+  - See: #TBD
+
+- [ ] **Webhook notifications**
+  - POST results to webhook URL
+  - Slack/Discord integration
+  - Email notifications (SMTP)
+  - Configurable trigger conditions
+  - See: #TBD
+
+### Low Priority
+
+- [ ] **Custom threshold configuration**
+  - YAML/TOML config file
+  - Per-metric threshold tuning
+  - Priority level customization
+  - Domain-specific presets
+  - See: #TBD
+
+- [ ] **Plugin system**
+  - Custom content extractors
+  - Custom similarity metrics
+  - Output format plugins
+  - Hook points for extensions
+  - See: #TBD
+
+## Version 0.5.0+ (Q4 2025+)
+
+### Future Considerations
+
+- [ ] **JavaScript rendering**
+  - Playwright integration
+  - Configurable render timeout
+  - Screenshot diffing
+  - Performance impact acceptable?
+  - See: #TBD
+
+- [ ] **Image similarity**
+  - perceptual hashing (pHash)
+  - Detect duplicate hero images
+  - Alt text comparison
+  - See: #TBD
+
+- [ ] **Schema.org validation**
+  - Extract JSON-LD structured data
+  - Validate against schema.org specs
+  - Compare structured data across pages
+  - Find missing required properties
+  - See: #TBD
+
+- [ ] **Link graph analysis**
+  - Build internal link graph
+  - Find orphaned pages
+  - Identify link hubs
+  - Calculate PageRank-like scores
+  - See: #TBD
+
+- [ ] **Performance metrics**
+  - Core Web Vitals collection
+  - Page load time tracking
+  - Resource size analysis
+  - See: #TBD
 
 ## Known Issues
 
 ### High Priority
-- [ ] Fix test import error in `tests/test_integration.py`
-- [ ] Add Windows-specific path handling tests
-- [ ] Validate rate limiting accuracy under load
+
+- [ ] Progress bars flicker on Windows Terminal
+  - Workaround: Use Windows Terminal Preview
+  - Root cause: Rich library terminal detection
+  - See: #TBD
+
+- [ ] Template detection fails on very small page sets (<5)
+  - Current: Disabled for n<5
+  - Better: Use adaptive threshold
+  - See: #TBD
 
 ### Medium Priority
-- [ ] Improve extraction for table-heavy pages (specs sheets)
-- [ ] Handle very long URLs (>2000 chars) in CSV output
-- [ ] Add warning for pages with no extractable text
-- [ ] Better detection of navigation vs content
+
+- [ ] Large crawls (>500 pages) exceed 5-minute target
+  - Root cause: O(n²) comparison
+  - Solution: Implement MinHash in v0.4.0
+  - Workaround: Use --max-pages 200
+  - See: #TBD
+
+- [ ] Memory usage grows with page count
+  - Current: ~500MB for 200 pages
+  - Target: <200MB for 200 pages
+  - Consider: Streaming comparison
+  - See: #TBD
 
 ### Low Priority
-- [ ] Add colorblind-friendly terminal output option
-- [ ] Improve error messages for network timeouts
-- [ ] Add debug mode with verbose logging
+
+- [ ] No color output in CI logs
+  - Workaround: Rich auto-detects terminal
+  - Enhancement: Force color with --color flag
+  - See: #TBD
+
+- [ ] CSV output uses Unix line endings on Windows
+  - Standard: Python csv module uses system default
+  - Enhancement: Add --crlf flag
+  - See: #TBD
 
 ## Non-Goals
 
-These features are explicitly **not planned**:
+These are explicitly **not** planned:
 
-- ❌ LLM-based similarity (not deterministic, expensive)
-- ❌ Image similarity comparison (out of scope)
-- ❌ Video content analysis
-- ❌ Automated content rewriting
-- ❌ SEO score calculation (too subjective)
-- ❌ Keyword density analysis (deprecated SEO practice)
-- ❌ Link spam detection (different problem domain)
-- ❌ GUI desktop application (CLI-first philosophy)
+- ❌ **LLM-based content analysis** - Too slow, non-deterministic
+- ❌ **Automatic SEO recommendations** - Out of scope
+- ❌ **Keyword research tools** - Use dedicated tools
+- ❌ **Backlink analysis** - Use Ahrefs, Majestic, etc.
+- ❌ **Rank tracking** - Use SERPWatcher, etc.
+- ❌ **On-page SEO scoring** - Too subjective
+- ❌ **Content generation** - Not an audit tool
+- ❌ **Link building outreach** - Out of scope
 
-## Ideas / Maybe
+## Community Requests
 
-Features under consideration:
+Track most-requested features from GitHub Issues and Discussions:
 
-- 🤔 Diff mode showing exact differences between near-duplicates
-- 🤔 Export to XLSX with conditional formatting
-- 🤔 Support for authenticated pages (login flow)
-- 🤔 Lighthouse integration for performance metrics
-- 🤔 A/B test variant detection
-- 🤔 Machine learning for custom similarity models (opt-in)
-- 🤔 Browser extension for one-click audits
-- 🤔 Cloud service for scheduled audits
+| Feature | Votes | Status | Target |
+|---------|-------|--------|--------|
+| JavaScript rendering | 15 | Considering | v0.5.0 |
+| MinHash for large sites | 12 | Planned | v0.4.0 |
+| Web UI | 10 | Planned | v0.4.0 |
+| Canonical validation | 8 | Planned | v0.3.0 |
+| Custom thresholds | 6 | Planned | v0.4.0 |
+| robots.txt support | 5 | Planned | v0.3.0 |
+| Hreflang validation | 4 | Planned | v0.3.0 |
+| Sitemap parsing | 4 | Planned | v0.3.0 |
 
-## Contributing
+**Want to influence the roadmap?**
+- Vote on existing issues with 👍
+- Open a feature request
+- Contribute a PR
 
-Want to work on any of these? See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+## Recent Completions
 
-Open an issue to discuss implementation before starting work on major features.
+### v0.2.0 (Released 2025-01-XX)
 
-## Priorities
+- ✅ Site-wide crawl mode
+- ✅ Progress bars with time estimation
+- ✅ Crash recovery with --resume
+- ✅ Block overlap metric
+- ✅ Enhanced template detection
+- ✅ Rich terminal UI
+- ✅ Comprehensive documentation suite
+- ✅ Cross-platform CI
 
-Current focus areas in order:
-1. **Stability**: Fix known bugs, improve error handling
-2. **Documentation**: Examples, tutorials, API docs
-3. **Paraphrase detection**: Core algorithm improvements
-4. **SEO features**: Canonical, sitemap, hreflang
-5. **Performance**: Scale to 500+ pages efficiently
-6. **API**: Enable programmatic usage
+### v0.1.0 (Released 2025-01-XX)
+
+- ✅ Core URL comparison
+- ✅ Main content extraction
+- ✅ Multiple similarity signals
+- ✅ Template detection
+- ✅ Three-tier priority system
+- ✅ JSON/CSV/Markdown output
+- ✅ HTTP safety features
+- ✅ CJK text support
+
+## Contributing to Roadmap
+
+We welcome community input on priorities!
+
+**How to help:**
+
+1. **Vote on issues** - Use 👍 to show interest
+2. **Discuss trade-offs** - Comment on design decisions
+3. **Propose alternatives** - Suggest better approaches
+4. **Implement features** - Submit PRs for planned items
+
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for development guidelines.
+
+## Version Support Policy
+
+| Version | Type | Support Duration |
+|---------|------|------------------|
+| 0.x.0 (major minor) | Feature releases | 6 months |
+| 0.x.y (patches) | Bug fixes only | Until next minor |
+
+**Example:**
+- v0.3.0 released April 2025 → supported until October 2025
+- v0.3.1 released May 2025 → supported until v0.4.0 release
+
+## Release Cadence
+
+- **Major minor releases** (0.x.0): Quarterly
+- **Patch releases** (0.x.y): As needed for critical bugs
+- **Release candidates**: 2 weeks before major releases
+
+## Compatibility Promise
+
+**Until v1.0.0:**
+- CLI flags may change (with deprecation warnings)
+- JSON/CSV output schemas may evolve
+- Python API is experimental
+
+**After v1.0.0:**
+- Semantic versioning strictly followed
+- Breaking changes only in major versions
+- Deprecation cycle: 2 major versions
 
 ---
 
-Last updated: 2025-01-13
+**Questions about the roadmap?**
+Open a [discussion](https://github.com/wowayou/web-similarity-audit/discussions).
+
+**Want to help prioritize?**
+Vote on [issues](https://github.com/wowayou/web-similarity-audit/issues) with 👍.
