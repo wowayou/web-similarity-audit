@@ -7,44 +7,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned
+- Language-specific tokenization for better CJK support
+- Sitemap.xml parsing for URL discovery
+- Canonical tag conflict detection
+- Optional JavaScript rendering with Playwright
+- REST API mode
+- Enhanced paraphrase detection algorithms
+
 ## [0.2.0] - 2025-01-XX
 
 ### Added
-- Progress bars with time estimates for all phases (crawling, fetching, extraction, similarity)
-- Crash recovery system with `--resume` and `--no-resume` flags
-- State persistence in `.audit-state.json` for interrupted runs
-- Elapsed time and ETA display during long operations
-- Automatic state cleanup on successful completion
-- Rich terminal formatting with color-coded output
-- Spinner animations for active operations
+- Progress bars with time estimation for all operations (crawl, fetch, extract, compare)
+- Crash recovery with `--resume` flag to continue interrupted audits
+- State persistence in `.audit-state.json`
+- Rich terminal UI with color-coded status messages
+- Detailed progress tracking for long-running operations
 
 ### Changed
-- Enhanced CLI output with progress visualization
-- Improved error messages with color coding and icons
-- Better user feedback during all processing phases
+- Improved error messages with more context
+- Better handling of keyboard interrupts (Ctrl+C)
+- Enhanced user feedback during crawling phase
 
 ### Fixed
-- Test import errors in integration tests
+- Progress bar display issues with large page counts
+- State file cleanup on successful completion
 
-## [0.1.0] - 2025-01-XX
+## [0.1.0] - 2025-01-13
 
 ### Added
-- Initial release
-- CLI tool for auditing web page similarity
-- Support for 2-200 URLs via direct input or CSV file
-- Website crawling mode (`--crawl`) similar to Screaming Frog
-- Main content extraction with trafilatura
-- Multiple similarity signals: SHA-256, n-gram Jaccard, TF-IDF, block overlap
+- Initial release with core functionality
+- CLI tool for detecting duplicate and near-duplicate web pages
+- Whole-site crawling mode with `--crawl` flag
+- Multiple similarity signals:
+  - SHA-256 hash for exact duplicates
+  - n-gram Jaccard index for token overlap
+  - TF-IDF cosine similarity for semantic similarity
+  - Block overlap for shared paragraph detection
 - Template detection and removal for cleaner comparison
+- Main content extraction using trafilatura
+- Explicit extraction failure reporting
+- Three output formats:
+  - `pages.json` - Full page metadata
+  - `pairs.csv` - Pairwise similarity comparisons
+  - `report.md` - Human-readable summary
 - Priority classification (P1/P2/P3) with explicit trigger reasons
-- JSON, CSV, and Markdown report outputs
-- SSRF protection and rate limiting
-- Support for English and CJK (Chinese/Japanese/Korean) text
-- Comprehensive test suite with 16 tests
-- Cross-platform support (Windows/macOS/Linux)
-- GitHub Actions CI/CD pipeline
-- MIT License
-- Comprehensive documentation (README, CONTRIBUTING, TODO)
+- HTTP features:
+  - Automatic retry with exponential backoff
+  - Per-host rate limiting
+  - Concurrent fetching with connection pooling
+  - SSRF protection (blocks private IPs)
+  - HTTP/2 and Brotli support
+  - Configurable timeout and response size limits
+- Cross-platform support (Windows, macOS, Linux)
+- CJK (Chinese, Japanese, Korean) text support with NFKC normalization
+- CSV input mode for comparing specific URL lists
+- Configurable concurrency and rate limiting
+- Deterministic output for reproducible audits
+- Comprehensive error codes (0-4) for CI integration
+- Test suite with 10+ test cases
+- GitHub Actions CI pipeline
+- Documentation:
+  - README with installation and usage
+  - Examples for common use cases
+  - API documentation in docstrings
+
+### Dependencies
+- beautifulsoup4 >= 4.12.0
+- httpx[brotli,http2] >= 0.27.0
+- lxml >= 5.0.0
+- trafilatura >= 1.12.0
+- rich >= 13.0.0
+
+### Non-goals (documented)
+- LLM-based similarity (not deterministic)
+- Web UI or dashboard
+- Model Context Protocol (MCP) server
+- Database storage
+- Automated SEO decisions
 
 [Unreleased]: https://github.com/wowayou/web-similarity-audit/compare/v0.2.0...HEAD
 [0.2.0]: https://github.com/wowayou/web-similarity-audit/compare/v0.1.0...v0.2.0
