@@ -19,11 +19,33 @@ class ContentExtractor:
     
     def extract(self, html: str, page_input: PageInput, status_code: int) -> PageResult:
         """
-        Extract main content from HTML following priority order:
-        1. CSS selector (if provided)
-        2. Start/end markers (if provided)
-        3. Trafilatura extraction
-        4. Body fallback (marked as uncertain)
+        Extract main content from HTML following a strict priority order.
+
+        Precedence (highest first):
+            1. CSS ``selector``  (if provided)
+            2. ``start_marker`` / ``end_marker``  (if both provided)
+            3. Trafilatura automatic extraction
+            4. ``<body>`` fallback (marked uncertain)
+
+        Rules:
+            * If ``selector`` is provided and matches, it wins even when markers
+              are also provided.
+            * If ``selector`` is provided but does **not** match, extraction
+              fails explicitly (``selector_failed``) and does **not** silently
+              fall through to markers or trafilatura. This preserves the
+              project's "explicit failure" contract so callers can tell that
+              their configured selector is broken.
+            * If only ``start_marker``/``end_marker`` are provided and either is
+              missing from the HTML, extraction fails explicitly
+              (``markers_failed``).
+            * Only when the caller provides no explicit selector/markers does
+              the tool fall back to trafilatura and finally to the uncertain
+              ``<body>`` extraction.
+
+        Text is normalized with NFKC, so full-width forms such as
+        ``ＣＷＢ－１５９`` become ``CWB-159`` before hashing. This makes
+        full-width and half-width renderings of the same model number compare
+        as equal, which is desirable for duplicate detection.
         """
         result = PageResult(url=page_input.url, status_code=status_code)
         soup = BeautifulSoup(html, "lxml")

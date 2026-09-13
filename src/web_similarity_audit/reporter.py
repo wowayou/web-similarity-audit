@@ -64,6 +64,8 @@ class Reporter:
         scores: list[SimilarityScore],
         common_blocks: Optional[set[str]],
         elapsed_time: float,
+        compute_time: float | None = None,
+        fetch_time: float | None = None,
     ):
         """Write report.md with human-readable summary."""
         p1 = [s for s in scores if s.priority == "P1"]
@@ -83,7 +85,15 @@ class Reporter:
             f"- **Uncertain extractions**: {len(uncertain)}",
             f"- **Failed extractions**: {len(failed)}",
             f"- **Total pairs analyzed**: {len(scores)}",
-            f"- **Computation time**: {elapsed_time:.2f}s",
+            f"- **Total time**: {elapsed_time:.2f}s",
+            *(
+                [f"- **Fetch + extract time**: {fetch_time:.2f}s"]
+                if fetch_time is not None else []
+            ),
+            *(
+                [f"- **Computation time**: {compute_time:.2f}s"]
+                if compute_time is not None else []
+            ),
             "",
             "## Similarity Findings",
             "",

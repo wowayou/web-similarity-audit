@@ -73,3 +73,9 @@ audit-results/
 *.tmp
 *.bak
 .~lock.*
+
+# Audit output directories
+audit-before/
+audit-after/
+audit-*/
+client-audit-*.tar.gz

@@ -239,6 +239,8 @@ async def run_audit(
             pages = resume_pages
             console.print(f"[yellow]↻ Resumed with {len(pages)} previously fetched pages[/yellow]")
         
+        fetch_phase_time = time.time() - start_time
+        
         # Check failure thresholds
         fetch_failed = sum(1 for p in pages if p.status_code is None or p.status_code >= 400)
         extraction_failed = sum(
@@ -254,7 +256,10 @@ async def run_audit(
             reporter = Reporter(output_dir)
             reporter.write_pages_json(pages)
             reporter.write_pairs_csv([])
-            reporter.write_markdown_report(pages, [], None, time.time() - start_time)
+            reporter.write_markdown_report(
+                pages, [], None, time.time() - start_time,
+                fetch_time=fetch_phase_time,
+            )
             state_manager.clear_state()
             return 2
         
@@ -263,7 +268,10 @@ async def run_audit(
             reporter = Reporter(output_dir)
             reporter.write_pages_json(pages)
             reporter.write_pairs_csv([])
-            reporter.write_markdown_report(pages, [], None, time.time() - start_time)
+            reporter.write_markdown_report(
+                pages, [], None, time.time() - start_time,
+                fetch_time=fetch_phase_time,
+            )
             state_manager.clear_state()
             return 3
         
@@ -303,6 +311,8 @@ async def run_audit(
         
         progress.update(similarity_task, description="[green]✓ Similarity computation complete")
         
+        compute_time = time.time() - start_time - fetch_phase_time
+        
         # Phase 5: Report generation
         report_task = progress.add_task(
             f"[cyan]Generating reports...",
@@ -316,7 +326,11 @@ async def run_audit(
         reporter.write_pairs_csv(scores)
         progress.update(report_task, advance=1)
         
-        reporter.write_markdown_report(pages, scores, common_blocks, time.time() - start_time)
+        reporter.write_markdown_report(
+            pages, scores, common_blocks, time.time() - start_time,
+            compute_time=compute_time,
+            fetch_time=fetch_phase_time,
+        )
         progress.update(report_task, advance=1, description="[green]✓ Reports generated")
     
     # Clear state on success
