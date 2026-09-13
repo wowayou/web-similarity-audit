@@ -30,7 +30,6 @@ ENV/
 .pytest_cache/
 .coverage
 htmlcov/
-.tox/
 
 # IDEs
 .vscode/
@@ -39,13 +38,10 @@ htmlcov/
 *.swo
 *~
 
-# Audit results
+# Output directories
 audit-results/
-*.state
+.audit-state.json
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log

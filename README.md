@@ -1,153 +1,231 @@
 # Web Similarity Audit
 
-![Tests](https://img.shields.io/badge/tests-16%20passed-success)
-![Python](https://img.shields.io/badge/python-3.10+-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+A command-line tool for detecting duplicate and near-duplicate web pages with explicit failure reporting and detailed similarity analysis.
 
-CLI 工具用于检测网站内的近重复页面和薄页面，类似 Screaming Frog 的 Near Duplicates 功能，但增强了失败显式报告和可复现性。
+## Features
 
-## 特性
+- **Multiple Input Modes**: Direct URLs, CSV files, or whole-site crawling (Screaming Frog style)
+- **Smart Content Extraction**: Uses trafilatura for reliable main content extraction
+- **Multi-Signal Analysis**: SHA-256, n-gram Jaccard, TF-IDF cosine similarity, and block overlap
+- **Template Detection**: Automatically identifies and removes common template blocks
+- **Priority Classification**: P1/P2/P3 with explicit trigger reasons for each pair
+- **Rich Progress Display**: Real-time progress bars with ETA for all phases
+- **Crash Recovery**: Resume interrupted runs with `--resume` flag
+- **Comprehensive Reports**: JSON, CSV, and Markdown outputs with detailed diagnostics
+- **CJK Support**: Handles English, Chinese, Japanese, and Korean text
+- **Safety Features**: SSRF protection, rate limiting, and explicit failure thresholds
 
-- **整站爬取模式** (`--crawl`)：类似 Screaming Frog，从起始 URL 自动发现并审计整个网站
-- **URL 列表模式**：直接提供 URL 列表或 CSV 文件
-- **失败显式报警**：主体提取失败时显式报告，不静默回退到全页比较
-- **双重相似度视图**：原始内容 + 去模板内容对比
-- **多信号可解释**：SHA-256、n-gram Jaccard、TF-IDF、块级重合率
-- **本地确定性**：纯本地计算，可复现，支持 fixtures
-- **跨平台 CI**：Windows/macOS/Linux 测试通过
-
-## 快速开始
-
-### 安装
+## Installation
 
 ```bash
-pipx install web-similarity-audit
+pip install web-similarity-audit
 ```
 
-或从源码安装：
+Or install from source:
 
 ```bash
-git clone <repo>
+git clone https://github.com/wowayou/web-similarity-audit.git
 cd web-similarity-audit
 pip install -e .
 ```
 
-### 使用
+## Quick Start
 
-**整站爬取模式**（推荐用于 SEO 审计）：
-
-```bash
-# 爬取整个网站（最多 200 页）
-web-similarity-audit --crawl https://example.com
-
-# 限制页面数量
-web-similarity-audit --crawl https://example.com --max-pages 50
-
-# 包含外部链接
-web-similarity-audit --crawl https://example.com --follow-external
-```
-
-**URL 列表模式**：
+### Compare specific URLs
 
 ```bash
-# 直接提供 URL
+# Direct URLs
 web-similarity-audit https://example.com/page1 https://example.com/page2
 
-# 从 CSV 文件加载
+# From CSV file
 web-similarity-audit urls.csv
 ```
 
-CSV 格式（可选列：selector, start_marker, end_marker）：
-
-```csv
-url,selector
-https://example.com/page1,article.main-content
-https://example.com/page2,#content
-```
-
-### 输出
-
-报告生成在 `./audit-results/` 目录：
-
-- `report.md`：人类可读的 Markdown 报告
-- `pages.json`：所有页面的提取结果和元数据
-- `pairs.csv`：所有页面对的相似度得分和触发原因
-
-## 相似度分级
-
-- **P1（高优先级）**：SHA-256 完全相同 OR TF-IDF ≥ 0.85 OR Jaccard ≥ 0.25 OR 块级重合率 ≥ 0.7
-- **P2（中优先级）**：TF-IDF ≥ 0.70 OR Jaccard ≥ 0.15 OR 块级重合率 ≥ 0.5
-- **P3（低优先级）**：TF-IDF ≥ 0.50 OR Jaccard ≥ 0.10
-
-## 技术栈
-
-- **HTTP 客户端**：httpx（支持 HTTP/2、Brotli）
-- **HTML 解析**：BeautifulSoup4 + lxml
-- **主体提取**：trafilatura（F1 基准、CJK 支持）
-- **相似度计算**：纯标准库（TF-IDF、Jaccard、SHA-256）
-
-## 爬虫特性
-
-- **尊重 robots.txt**（基础实现）
-- **速率限制**：默认每个主机 2 rps
-- **并发控制**：默认最多 4 个并发请求
-- **智能过滤**：自动跳过图片、PDF、CSS、JS 等非 HTML 资源
-- **域内爬取**：默认只爬取同域名页面（可选 `--follow-external`）
-
-## 开发
+### Crawl entire website
 
 ```bash
-# 克隆仓库
-git clone <repo>
-cd web-similarity-audit
+# Crawl up to 200 pages (default)
+web-similarity-audit --crawl https://example.com
 
-# 创建虚拟环境
-python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+# Crawl up to 500 pages
+web-similarity-audit --crawl https://example.com --max-pages 500
 
-# 安装依赖（可编辑模式）
-pip install -e .
-
-# 运行测试
-pytest tests/ -v
-
-# 运行单个测试
-pytest tests/test_crawler.py -v
+# Include external links
+web-similarity-audit --crawl https://example.com --follow-external
 ```
 
-## 与 Screaming Frog 对比
+### Resume interrupted run
 
-| 特性 | Screaming Frog | web-similarity-audit |
-|------|----------------|---------------------|
-| 整站爬取 | ✓ | ✓ |
-| 近重复检测 | ✓（SimHash） | ✓（多信号） |
-| 主体提取 | CSS 选择器，失败静默 | trafilatura，失败显式 |
-| CLI / 可复现 | ✗（GUI） | ✓ |
-| 开源 / 免费 | ✗ | ✓ |
-| 可解释性 | 中 | 高（输出所有信号值） |
-| CI 集成 | ✗ | ✓ |
+```bash
+# Resume from saved state
+web-similarity-audit --resume --crawl https://example.com
 
-## 依赖列表
+# Force fresh start
+web-similarity-audit --no-resume --crawl https://example.com
+```
 
-- beautifulsoup4 ≥ 4.12.0
-- httpx[brotli,http2] ≥ 0.27.0
-- lxml ≥ 5.0.0
-- trafilatura ≥ 1.12.0
+## CSV Input Format
 
-## 退出码
+Create a CSV file with optional custom selectors and markers:
 
-- `0`：成功完成
-- `1`：输入错误（URL 格式、数量等）
-- `2`：抓取失败率 > 20%
-- `3`：主体提取失败率 > 20%
-- `4`：致命错误或用户中断
+```csv
+url,selector,start_marker,end_marker
+https://example.com/page1,article.content,<!-- content start -->,<!-- content end -->
+https://example.com/page2,main,BEGIN_MAIN,END_MAIN
+https://example.com/page3,,,
+```
 
-## 许可证
+Fields:
+- `url` (required): The page URL
+- `selector` (optional): CSS selector for main content
+- `start_marker` (optional): HTML comment marking content start
+- `end_marker` (optional): HTML comment marking content end
 
-MIT License
+## Output Reports
 
-## 致谢
+All reports are written to `./audit-results/` (customizable with `--output-dir`):
 
-- [trafilatura](https://github.com/adbar/trafilatura)：主体提取
-- [httpx](https://github.com/encode/httpx)：现代 HTTP 客户端
-- PRD 中提到的 Screaming Frog、Sitebulb 等商业工具提供的灵感
+### 1. pages.json
+Detailed page-level data:
+```json
+{
+  "url": "https://example.com/page",
+  "status_code": 200,
+  "content_hash": "abc123...",
+  "extraction_method": "trafilatura",
+  "extraction_confident": true,
+  "text_length": 1523,
+  "text_length_no_template": 1205,
+  "has_cjk": false
+}
+```
+
+### 2. pairs.csv
+Pairwise similarity scores:
+```csv
+url_a,url_b,priority,sha256_match,jaccard,tfidf_cosine,block_overlap,jaccard_no_tpl,tfidf_no_tpl,trigger_reasons
+https://a.com,https://b.com,P1,false,0.78,0.91,0.65,0.72,0.89,"tfidf_cosine>=0.85; block_overlap>=0.50"
+```
+
+### 3. report.md
+Human-readable summary with:
+- Execution metadata
+- Failure warnings (fetch/extraction issues)
+- Priority breakdown
+- Top P1 pairs with trigger explanations
+- Template blocks detected
+
+## Priority Levels
+
+- **P1 (High)**: Likely duplicates
+  - TF-IDF ≥ 0.85, OR
+  - Jaccard ≥ 0.25, OR
+  - Block overlap ≥ 0.50, OR
+  - SHA-256 match
+  
+- **P2 (Moderate)**: Possibly similar
+  - TF-IDF ≥ 0.70, OR
+  - Jaccard ≥ 0.15
+
+- **P3 (Low)**: Low similarity
+  - Everything else
+
+## Command-Line Options
+
+```
+usage: web-similarity-audit [-h] [--output-dir OUTPUT_DIR] [--crawl]
+                            [--max-pages MAX_PAGES] [--follow-external]
+                            [--max-response-size MAX_RESPONSE_SIZE]
+                            [--timeout TIMEOUT] [--rate-limit RATE_LIMIT]
+                            [--max-concurrent MAX_CONCURRENT]
+                            [--resume] [--no-resume]
+                            input [input ...]
+
+Options:
+  --output-dir DIR          Output directory (default: ./audit-results)
+  --crawl                   Crawl entire website from starting URL
+  --max-pages N             Max pages to crawl (default: 200)
+  --follow-external         Follow external links in crawl mode
+  --max-response-size N     Max response size in bytes (default: 2MB)
+  --timeout SECONDS         HTTP timeout (default: 10)
+  --rate-limit RPS          Requests per second per host (default: 2)
+  --max-concurrent N        Max concurrent requests (default: 4)
+  --resume                  Resume from previous interrupted run
+  --no-resume               Force fresh start, ignore saved state
+```
+
+## Failure Modes
+
+The tool exits with explicit codes:
+
+- `0`: Success
+- `1`: Invalid input (bad URLs, missing file, etc.)
+- `2`: Too many fetch failures (>20%)
+- `3`: Too many extraction failures (>20%)
+- `4`: Fatal error or user interrupt
+
+## Development
+
+### Setup
+
+```bash
+git clone https://github.com/wowayou/web-similarity-audit.git
+cd web-similarity-audit
+python -m venv venv
+source venv/bin/activate  # or `venv\Scripts\activate` on Windows
+pip install -e .
+```
+
+### Run Tests
+
+```bash
+pytest tests/ -v
+```
+
+### Project Structure
+
+```
+src/web_similarity_audit/
+├── cli.py              # Main entry point and CLI logic
+├── crawler.py          # Website crawling (Screaming Frog mode)
+├── fetcher.py          # HTTP fetching with SSRF protection
+├── extractor.py        # Main content extraction
+├── template.py         # Template block detection
+├── similarity.py       # Similarity scoring engine
+├── reporter.py         # Report generation
+├── state.py            # Crash recovery state management
+├── models.py           # Data models
+└── utils.py            # Text normalization utilities
+```
+
+## Use Cases
+
+1. **SEO Audits**: Find duplicate content issues across your website
+2. **Content Migration**: Verify pages were copied correctly
+3. **Quality Assurance**: Detect unintended page duplication
+4. **Competitive Analysis**: Compare similar pages across sites
+5. **Consulting Deliverables**: Provide evidence-backed reports to clients
+
+## Design Philosophy
+
+- **Explicit over implicit**: All failures are reported, not silently handled
+- **Explainable signals**: Every P1/P2 classification shows which thresholds triggered
+- **Deterministic**: No LLMs, same input always produces same output
+- **Reproducible**: CSV inputs and state files can be shared and re-run
+- **No silent fallbacks**: If main content extraction fails, it's flagged explicitly
+
+## License
+
+MIT License - see LICENSE file for details
+
+## Contributing
+
+Issues and pull requests welcome at https://github.com/wowayou/web-similarity-audit
+
+## Acknowledgments
+
+Built with:
+- [trafilatura](https://github.com/adbar/trafilatura) for content extraction
+- [httpx](https://www.python-httpx.org/) for HTTP operations
+- [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) for HTML parsing
+- [rich](https://rich.readthedocs.io/) for terminal UI
