@@ -1,0 +1,96 @@
+name: Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please provide as much detail as possible.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem would this feature solve? What's the use case?
+      placeholder: I'm trying to X but can't because Y...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How would you like this feature to work?
+      placeholder: |
+        Add a new flag: --validate-canonical
+        This would check all pages for canonical link issues...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What alternative solutions or workarounds have you tried?
+      placeholder: I tried using X but it doesn't work for Y reason...
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Usage Examples
+      description: Show how this feature would be used
+      render: shell
+      placeholder: |
+        # Example command
+        web-similarity-audit --crawl https://example.com --validate-canonical
+        
+        # Expected output
+        Canonical Issues Found:
+        - https://example.com/page1 -> self-referential
+        - https://example.com/page2 -> missing canonical
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Critical (blocking my work)
+        - High (would significantly improve my workflow)
+        - Medium (nice to have)
+        - Low (minor improvement)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: willingness
+    attributes:
+      label: Implementation
+      description: Would you be willing to implement this feature?
+      options:
+        - Yes, I can submit a PR
+        - Maybe, with guidance
+        - No, but I can help test
+        - No, I can only report
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, or links
+      placeholder: Similar tools like X have this feature...
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: I have checked the [roadmap](https://github.com/wowayou/web-similarity-audit/blob/main/TODO.md)
+          required: true
+        - label: This feature aligns with the project's scope (SEO auditing, no AI/ML)
+          required: true

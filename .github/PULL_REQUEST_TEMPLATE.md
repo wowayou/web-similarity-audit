@@ -1,102 +1,137 @@
+# Pull Request
+
 ## Description
 
-Brief description of the changes in this PR.
-
-## Motivation
-
-Why is this change needed? What problem does it solve?
-
-Fixes #(issue number)
-
-## Changes
-
-- Change 1
-- Change 2
-- Change 3
+<!-- Provide a clear description of your changes -->
 
 ## Type of Change
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
+<!-- Check all that apply -->
+
+- [ ] Bug fix (non-breaking change that fixes an issue)
+- [ ] New feature (non-breaking change that adds functionality)
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
 - [ ] Documentation update
-- [ ] Refactoring (no functional changes)
 - [ ] Performance improvement
-- [ ] Test improvements
+- [ ] Code refactoring
+- [ ] Test improvement
+
+## Related Issues
+
+<!-- Link to related issues -->
+
+Fixes #
+Relates to #
+
+## Changes Made
+
+<!-- Detailed list of changes -->
+
+- 
+- 
+- 
 
 ## Testing
 
-How was this tested?
+<!-- Describe the tests you ran and how to reproduce -->
 
-- [ ] Unit tests added/updated
-- [ ] Integration tests added/updated
-- [ ] Manual testing performed
-- [ ] All tests pass locally
+### Test Commands
 
-**Test commands run:**
 ```bash
+# Commands used to test
 pytest tests/ -v
+web-similarity-audit --crawl https://example.com --max-pages 50
 ```
 
-**Manual testing steps:**
-1. Step 1
-2. Step 2
+### Test Results
+
+- [ ] All existing tests pass
+- [ ] New tests added for new functionality
+- [ ] Manual testing completed
+
+**Test coverage:**
+<!-- Output of pytest --cov -->
+
+```
+```
+
+### Test Environment
+
+- OS: <!-- e.g., Ubuntu 22.04, macOS 13, Windows 11 -->
+- Python: <!-- e.g., 3.10.5 -->
+- Installation: <!-- pipx, pip, from source -->
 
 ## Documentation
 
-- [ ] Updated README.md (if needed)
+<!-- Check all that apply -->
+
+- [ ] Updated README.md
+- [ ] Updated relevant docs in docs/
 - [ ] Updated CHANGELOG.md
-- [ ] Updated API docs (if needed)
-- [ ] Added/updated docstrings
-- [ ] Updated examples (if needed)
-
-## Code Quality
-
-- [ ] Code follows project style guidelines
-- [ ] Self-review performed
-- [ ] Comments added for complex logic
-- [ ] No new warnings introduced
-- [ ] Type hints added/updated
-
-**Pre-commit checks:**
-```bash
-black src/ tests/
-ruff check src/ tests/
-mypy src/
-pytest tests/ --cov
-```
-
-## Screenshots/Output (if applicable)
-
-Before:
-```
-[paste output or screenshot]
-```
-
-After:
-```
-[paste output or screenshot]
-```
-
-## Breaking Changes
-
-Does this PR introduce breaking changes? If yes, describe:
-
-- What breaks
-- Migration path for users
-- Deprecation notices added
-
-## Additional Notes
-
-Any additional information or context.
+- [ ] Added docstrings to new functions
+- [ ] Updated type hints
 
 ## Checklist
 
-- [ ] My code follows the project's code style
-- [ ] I have performed a self-review
+<!-- Ensure all items are completed -->
+
+- [ ] My code follows the project's style guidelines
+- [ ] I have performed a self-review of my code
 - [ ] I have commented my code, particularly in hard-to-understand areas
 - [ ] I have made corresponding changes to the documentation
 - [ ] My changes generate no new warnings
 - [ ] I have added tests that prove my fix is effective or that my feature works
 - [ ] New and existing unit tests pass locally with my changes
 - [ ] Any dependent changes have been merged and published
+
+## Performance Impact
+
+<!-- If applicable, describe performance impact -->
+
+**Before:**
+```
+Time: X seconds
+Memory: Y MB
+```
+
+**After:**
+```
+Time: X seconds
+Memory: Y MB
+```
+
+## Breaking Changes
+
+<!-- If this is a breaking change, describe migration path -->
+
+**Migration guide:**
+
+```bash
+# Before
+web-similarity-audit old-command
+
+# After
+web-similarity-audit new-command
+```
+
+## Screenshots
+
+<!-- If applicable, add screenshots -->
+
+## Additional Notes
+
+<!-- Any additional information for reviewers -->
+
+---
+
+## Reviewer Checklist
+
+<!-- For maintainers -->
+
+- [ ] Code quality and style
+- [ ] Test coverage adequate
+- [ ] Documentation complete
+- [ ] No security concerns
+- [ ] Performance acceptable
+- [ ] Breaking changes justified
+- [ ] CHANGELOG.md updated
