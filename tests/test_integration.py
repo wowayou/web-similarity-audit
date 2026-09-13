@@ -3,7 +3,7 @@
 from web_similarity_audit.extractor import ContentExtractor
 from web_similarity_audit.models import PageInput
 from web_similarity_audit.similarity import SimilarityCalculator
-from fixtures.sample_pages import SAMPLE_PAGE_1, SAMPLE_PAGE_2, SAMPLE_PAGE_3
+from tests.fixtures.sample_pages import SAMPLE_PAGE_1, SAMPLE_PAGE_2, SAMPLE_PAGE_3
 
 
 def test_similar_pages_detected():
@@ -15,7 +15,7 @@ def test_similar_pages_detected():
     
     assert page1.extraction_confident
     assert page2.extraction_confident
-    assert "crane" in page1.main_content.lower()
+    assert "widget" in page1.main_content.lower()
     
     calc = SimilarityCalculator()
     score = calc.compute_pairwise(page1, page2)
