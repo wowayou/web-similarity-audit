@@ -1,311 +1,347 @@
-# Web Similarity Audit (网页相似度审计工具)
+# Web Similarity Audit（网页相似度审计工具）
 
-[![CI](https://github.com/wowayou/web-similarity-audit/workflows/CI/badge.svg)](https://github.com/wowayou/web-similarity-audit/actions)
+[![CI](https://github.com/wowayou/web-similarity-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/wowayou/web-similarity-audit/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-检测网站内重复和近似重复内容的命令行工具。
+一个用于检测重复和近似重复网页的命令行工具，提供详细的相似度分析。专为需要**显式**、**确定性**和**可解释**内容审计的 SEO 专业人士构建。
 
-[English](README.md) | 简体中文
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-## 功能特点
+## 特性
 
-- **整站爬取模式** - 从单个起始 URL 发现并审计整个网站
-- **多信号检测** - 结合 SHA-256、n-gram Jaccard、TF-IDF 和块级重合度
-- **模板识别** - 自动检测并移除导航、页脚等公共模板内容
-- **显式失败报告** - 主体提取失败时明确警告，不静默回退
-- **可解释输出** - 每个相似度判断都有明确的触发原因
-- **崩溃恢复** - 使用 `--resume` 继续中断的审计
-- **进度跟踪** - 实时进度条和预计完成时间
-- **跨平台** - Windows、macOS、Linux 全支持
-- **CJK 支持** - 正确处理中文、日文、韩文内容
+✨ **全站爬取模式**，类似 Screaming Frog  
+📊 **多种相似度信号**：SHA-256、n-gram Jaccard、TF-IDF、块重叠度  
+🎯 **模板检测**，更干净的比较结果  
+📈 **进度条**，带时间预估  
+💾 **崩溃恢复**，使用 `--resume` 标志  
+🌐 **CJK 支持**（中文、日文、韩文）  
+🔒 **SSRF 防护**和速率限制  
+📋 **三种输出格式**：JSON、CSV、Markdown  
+🚫 **显式失败** - 无静默回退  
 
 ## 快速开始
 
 ### 安装
 
 ```bash
-# 使用 pipx（推荐）
 pipx install web-similarity-audit
+```
 
-# 或使用 pip
+或使用 pip：
+```bash
 pip install web-similarity-audit
 ```
 
-### 基础用法
+### 基本用法
 
+比较特定 URL：
 ```bash
-# 爬取整个网站（最多 200 页）
-web-similarity-audit --crawl https://example.com --max-pages 200
-
-# 从 CSV 文件比较特定 URL
-web-similarity-audit --csv urls.csv
-
-# 继续中断的审计
-web-similarity-audit --resume
-
-# 自定义输出目录
-web-similarity-audit --crawl https://example.com --output my-audit
+web-similarity-audit https://example.com/page1 https://example.com/page2
 ```
 
-### CSV 格式
+爬取整个网站：
+```bash
+web-similarity-audit --crawl https://example.com --max-pages 200
+```
 
-创建 `urls.csv` 文件：
+恢复中断的审计：
+```bash
+web-similarity-audit --resume
+```
 
+## 为什么选择这个工具？
+
+### 问题
+
+像 Screaming Frog 这样的商业工具可以检测重复内容，但存在以下问题：
+- **静默回退**：当主内容提取失败时，它们会比较整个页面（包括导航、页脚），导致误报
+- **黑盒评分**：你会得到一个相似度百分比，但没有解释
+- **无法复现**：不能包含在 CI 中，也不能作为可复现的交付物提供给客户
+
+### 本工具的方法
+
+1. **显式失败**：如果内容提取失败，会被记录——绝不会静默回退到比较完整 HTML
+2. **多种信号**：SHA-256 哈希、n-gram Jaccard、TF-IDF 余弦、块重叠度——每个都告诉你不同的信息
+3. **模板感知**：检测公共块（导航、页脚）并提供原始和去模板两种比较视图
+4. **可解释**：每个高优先级配对都会显示触发它的指标：`tfidf>=0.85 OR jaccard>=0.70`
+5. **可复现**：CLI 工具支持 CSV 输入/输出，非常适合 CI 流水线或顾问交付物
+
+## 文档
+
+- **[安装和使用](README.zh-CN.md#使用)** - 命令和示例
+- **[架构](docs/ARCHITECTURE.md)** - 内部工作原理（英文）
+- **[API 参考](docs/API.md)** - Python 集成（英文）
+- **[部署](docs/DEPLOYMENT.md)** - Docker、CI/CD、生产环境设置（英文）
+- **[贡献指南](docs/CONTRIBUTING.md)** - 开发指南（英文）
+- **[更新日志](CHANGELOG.md)** - 版本历史
+
+## 使用
+
+### 比较特定 URL
+
+创建 `urls.csv`：
 ```csv
-url
 https://example.com/page1
 https://example.com/page2
 https://example.com/page3
 ```
 
-## 输出说明
-
-审计完成后生成三个文件：
-
-### 1. `pages.json` - 页面元数据
-
-```json
-[
-  {
-    "url": "https://example.com/page1",
-    "content_hash": "abc123...",
-    "raw_text": "完整页面文本...",
-    "main_content": "提取的主体内容...",
-    "extraction_success": true,
-    "extraction_method": "trafilatura",
-    "char_count": 1234,
-    "word_count": 200
-  }
-]
+运行审计：
+```bash
+web-similarity-audit urls.csv
 ```
 
-### 2. `pairs.csv` - 相似度比较
+### 爬取网站
 
+```bash
+web-similarity-audit --crawl https://example.com --max-pages 200
+```
+
+选项：
+- `--max-pages N`：限制爬取 N 个页面（默认：200）
+- `--follow-external`：跟随到其他域的链接（默认：仅同域）
+- `--per-host-rate R`：每主机每秒最大请求数（默认：2.0）
+- `--concurrency N`：最大并发 HTTP 请求数（默认：4）
+
+### 高级选项
+
+```bash
+web-similarity-audit urls.csv \
+  --output custom-dir \
+  --concurrency 8 \
+  --per-host-rate 1.0 \
+  --timeout 30 \
+  --template-threshold 0.7
+```
+
+### 恢复中断的审计
+
+如果审计崩溃或被中断：
+```bash
+web-similarity-audit --resume
+```
+
+状态保存在 `.audit-state.json` 中，成功完成后会自动清理。
+
+## 输出
+
+在 `audit-results/` 目录中生成三个文件：
+
+### 1. pages.json
+
+完整的页面元数据：
+```json
+{
+  "summary": {
+    "total_pages": 121,
+    "successful_fetches": 121,
+    "extraction_success_rate": 0.95,
+    "p1_count": 5,
+    "p2_count": 303,
+    "p3_count": 453
+  },
+  "pages": [
+    {
+      "url": "https://example.com/page1",
+      "content_hash": "a3d2e1f...",
+      "char_count": 5234,
+      "extraction_success": true,
+      "extraction_method": "trafilatura"
+    }
+  ]
+}
+```
+
+### 2. pairs.csv
+
+包含所有指标的相似度配对：
 ```csv
 url_a,url_b,priority,sha256_match,jaccard,tfidf,block_overlap,trigger_reason
-https://example.com/a,https://example.com/b,P1,False,0.85,0.92,0.78,"tfidf>=0.85 AND jaccard>=0.70"
+https://example.com/page1,https://example.com/page2,P1,false,0.72,0.88,0.65,tfidf>=0.85 OR jaccard>=0.70
 ```
 
-**优先级说明：**
-- `P1` (高) - 高度相似，需要立即处理
-- `P2` (中) - 中度相似，建议检查
-- `P3` (低) - 轻度相似，仅供参考
+### 3. report.md
 
-### 3. `report.md` - 可读报告
+人类可读的摘要，包含：
+- 配置详情
+- 摘要统计
+- 按优先级排序的最相似配对
+- 提取失败的页面
 
-包含审计概要、提取失败警告、高优先级对列表等。
+## 理解指标
 
-## 高级功能
+### SHA-256 哈希
+精确内容匹配。如果哈希匹配，页面在规范化后是相同的。
 
-### 进度跟踪
+### N-gram Jaccard 相似度
+使用三元组（3 个词的块）测量词序重叠。
+- 高（>0.7）：许多相同的短语
+- 中等（0.4-0.7）：一些共享的短语
+- 低（<0.4）：不同的措辞
 
-所有长时间操作都显示进度条：
+### TF-IDF 余弦相似度
+测量主题相似性，同时降低常见词的权重。
+- 高（>0.85）：非常相似的主题
+- 中等（0.6-0.85）：相关的主题
+- 低（<0.6）：不同的主题
 
-```
-Crawling website starting from: https://example.com
-  Max pages: 200
-  [15/200] https://example.com/products/item-15
+### 块重叠度
+测量段落级别的复制。
+- 高（>0.6）：许多相同的段落
+- 中等（0.3-0.6）：一些共享的块
+- 低（<0.3）：大部分独特的块
 
-Fetching 200 pages...
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:45 < 0:00:00
+## 优先级
 
-Computing pairwise similarity for 19,900 pairs...
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:01:23 < 0:00:00
-```
+**P1（高优先级）** - 可能需要采取行动的重复内容：
+- TF-IDF ≥ 0.85 或
+- Jaccard ≥ 0.70 或
+- SHA-256 匹配
 
-### 崩溃恢复
+**P2（中等优先级）** - 建议审查：
+- TF-IDF ≥ 0.60 或
+- Jaccard ≥ 0.40 或
+- 块重叠度 ≥ 0.60
 
-如果审计被中断（Ctrl+C、网络故障等）：
+**P3（低优先级）** - 仅供参考
 
+## 使用场景
+
+### SEO 重复内容审计
 ```bash
-# 直接恢复
-web-similarity-audit --resume
+# 爬取生产站点
+web-similarity-audit --crawl https://mysite.com --max-pages 500
 
-# 或指定状态文件
-web-similarity-audit --resume --state-file custom-state.json
+# 检查 P1 问题
+jq '.summary.p1_count' audit-results/pages.json
 ```
 
-状态文件 (`.audit-state.json`) 保存：
-- 已抓取的 URL
-- 已下载的内容
-- 审计配置
-- 当前进度
-
-### 配置选项
-
+### 部署前检查
 ```bash
-# 并发和限速
-web-similarity-audit --crawl https://example.com \
-  --concurrency 8 \               # 最多 8 个并发连接
-  --per-host-limit 2              # 每个主机每秒最多 2 个请求
+# 在 CI 流水线中
+web-similarity-audit urls.csv
+if [ $? -ne 0 ]; then
+  echo "审计失败"
+  exit 1
+fi
 
-# 爬取控制
-web-similarity-audit --crawl https://example.com \
-  --max-pages 500 \               # 最多爬取 500 页
-  --follow-external               # 跟踪外部链接（默认不跟踪）
-
-# 自定义输出
-web-similarity-audit --crawl https://example.com \
-  --output my-results             # 结果保存到 my-results/
+P1_COUNT=$(jq '.summary.p1_count' audit-results/pages.json)
+if [ "$P1_COUNT" -gt 0 ]; then
+  echo "发现 $P1_COUNT 个高优先级重复内容"
+  exit 1
+fi
 ```
 
-## 相似度信号
-
-工具使用四种互补信号检测重复内容：
-
-### 1. SHA-256 哈希
-- **用途**：检测完全相同的页面
-- **范围**：精确匹配
-- **触发**：哈希值完全相同
-
-### 2. n-gram Jaccard 相似度
-- **用途**：检测复制粘贴和轻微改动
-- **范围**：0.0（完全不同）到 1.0（完全相同）
-- **触发**：≥0.70 为 P1，≥0.40 为 P2
-
-### 3. TF-IDF 余弦相似度
-- **用途**：检测语义相似和改写内容
-- **范围**：0.0（完全不同）到 1.0（完全相同）
-- **触发**：≥0.85 为 P1，≥0.60 为 P2
-
-### 4. 块级重合度
-- **用途**：检测共享段落和部分
-- **范围**：0.0（无共享块）到 1.0（所有块都共享）
-- **触发**：≥0.60 为 P2
-
-## 模板检测
-
-工具自动识别和移除公共模板内容：
-
-1. **识别公共块** - 查找出现在 ≥60% 页面中的文本块
-2. **生成双视图** - 保存原始内容和去模板内容
-3. **双重比较** - 分别对两个视图进行相似度计算
-
-**注意**：如果总页面数 <5，模板检测可能不准确。
-
-## 主体提取
-
-使用 [trafilatura](https://github.com/adbar/trafilatura) 提取主要内容：
-
-- 自动移除导航、页脚、侧边栏
-- 支持多种 CMS（WordPress、Shopify 等）
-- 返回置信度信息
-- **失败时显式报告**（不静默回退到整页）
-
-提取失败的页面会在 `report.md` 中列出。
-
-## 安全特性
-
-### SSRF 防护
-
-阻止请求：
-- 私有 IP 范围（10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16）
-- 本地地址（127.0.0.0/8, ::1）
-- 链路本地地址（169.254.0.0/16, fe80::/10）
-
-### 速率限制
-
-- 每个主机默认每秒 2 个请求
-- 可配置的并发连接数
-- 自动重试，指数退避
-- 响应大小限制（10MB）
-
-### 数据隐私
-
-- 不向外部服务发送数据
-- 仅本地存储结果
-- 不记录敏感信息
-
-## CI 集成
-
-退出码：
-
-- `0` - 成功
-- `1` - 输入验证失败（参数错误）
-- `2` - 抓取失败（网络错误）
-- `3` - 处理失败（内部错误）
-- `4` - 输出失败（写入错误）
-
-示例 GitHub Actions 工作流：
-
-```yaml
-- name: Run similarity audit
-  run: |
-    pipx install web-similarity-audit
-    web-similarity-audit --crawl https://staging.example.com --max-pages 100
-
-- name: Check for P1 duplicates
-  run: |
-    if [ $(grep -c ",P1," audit-results/pairs.csv) -gt 0 ]; then
-      echo "❌ Found P1 duplicates, blocking deploy"
-      exit 1
-    fi
-```
-
-## 开发
-
-### 本地设置
-
+### 顾问交付物
 ```bash
-# 克隆仓库
-git clone https://github.com/wowayou/web-similarity-audit.git
-cd web-similarity-audit
+# 创建可复现的审计
+web-similarity-audit --crawl https://client-site.com --max-pages 200
 
-# 创建虚拟环境
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 安装开发模式
-pip install -e '.[dev]'
-
-# 运行测试
-pytest tests/ -v
-
-# 代码检查
-ruff check .
-ruff format .
+# 与客户分享：
+# - audit-results/ 目录
+# - "运行：web-similarity-audit --resume" 以复制
 ```
 
-### 贡献
+### 多站点比较
+```bash
+# 从多个站点创建合并的 URL 列表
+cat site1-urls.csv site2-urls.csv > all-urls.csv
+web-similarity-audit all-urls.csv
+```
 
-欢迎贡献！请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解详情。
+## Python API
+
+```python
+from web_similarity_audit import Auditor
+
+# 创建审计器
+auditor = Auditor(concurrency=8, per_host_rate=2.0)
+
+# 爬取和审计
+results = auditor.audit_crawl("https://example.com", max_pages=200)
+
+# 访问结果
+print(f"发现 {results.summary.p1_count} 个高优先级重复内容")
+
+for pair in results.high_priority_pairs:
+    print(f"{pair.url_a} <-> {pair.url_b}")
+    print(f"  TF-IDF: {pair.tfidf:.3f}, Jaccard: {pair.jaccard:.3f}")
+```
+
+更多详情请参见 [API 文档](docs/API.md)（英文）。
+
+## 安全性
+
+- **SSRF 防护**：阻止私有 IP 范围（RFC 1918、RFC 4193、localhost）
+- **速率限制**：每主机令牌桶防止意外 DoS
+- **输入验证**：URL 方案和格式验证
+- **无凭证**：工具从不处理身份验证
+- **只读**：仅读取公共网页
+
+详见 [SECURITY.md](SECURITY.md)（英文）了解安全策略。
+
+## 限制
+
+- **最大页面数**：默认 200（可配置，但 O(n²) 比较会变慢）
+- **仅文本**：不分析图像、视频和客户端 JavaScript 内容
+- **公共页面**：不支持需要身份验证的内容
+- **针对英语优化**：可与 CJK 语言配合使用，但 TF-IDF 针对英语调优
 
 ## 路线图
 
-查看 [TODO.md](TODO.md) 了解计划功能：
+### v0.2.0（当前）
+- [x] 全站爬取模式
+- [x] 带预估时间的进度条
+- [x] 使用 --resume 崩溃恢复
+- [x] 块重叠度指标
+- [x] 全面的文档
 
-- v0.3.0: 增强的改写检测
-- v0.4.0: SEO 特定功能（sitemap、canonical、hreflang）
-- v0.5.0: 性能优化（MinHash LSH、增量模式）
-- v1.0.0: REST API 和集成
+### v0.3.0（计划中）
+- [ ] 增强的改写检测（序列对齐）
+- [ ] Sitemap.xml 解析
+- [ ] Canonical 链接验证
+- [ ] Hreflang 分析
 
-## 常见问题
+### v0.4.0（计划中）
+- [ ] MinHash/LSH 用于 O(n log n) 比较
+- [ ] 增量模式（仅比较更改的页面）
+- [ ] HTML 结构相似性
 
-### 为什么主体提取失败？
+### v1.0.0（未来）
+- [ ] 使用 FastAPI 的 REST API
+- [ ] 结果可视化的 Web UI
+- [ ] 数据库后端（SQLite/PostgreSQL）
+- [ ] 带作业队列的定时审计
 
-常见原因：
-- 页面主要是导航/菜单
-- 内容在 JavaScript 中生成（需要 `--render-js`）
-- 非标准 HTML 结构
-- 纯图片/视频页面
+详见 [TODO.md](TODO.md) 了解详细任务列表。
 
-查看 `report.md` 的"提取失败"部分了解详情。
+## 替代方案
 
-### 如何处理大型网站（1000+ 页）？
+**何时使用本工具：**
+- 需要可解释、可复现的审计
+- 需要 CI/CD 集成
+- 与需要复现结果的顾问或客户合作
+- 想了解页面*为什么*相似
 
-1. 分批处理：使用 `--max-pages` 分多次运行
-2. 使用 sitemap（v0.4.0 计划中）
-3. 通过 URL 模式过滤（计划中）
-4. 等待 MinHash LSH 支持（v0.5.0）
+**何时使用商业工具：**
+- 非技术用户需要 GUI
+- 需要除重复检测之外的全面 SEO 功能
+- 有付费工具预算
+- 需要企业支持
 
-### P1/P2/P3 阈值可以调整吗？
+**替代方案：**
+- [Screaming Frog](https://www.screamingfrogseoseo.com/) - 商业、GUI、全面的 SEO
+- [Sitebulb](https://sitebulb.com/) - 商业、可视化报告
+- [Siteliner](https://www.siteliner.com/) - 免费版本、仅在线
 
-当前版本使用固定阈值。可配置阈值计划在 v0.3.0 中实现。
+## 贡献
 
-### 支持 JavaScript 渲染的 SPA 吗？
-
-计划在 v0.4.0 中通过 `--render-js` 支持（使用 Playwright）。
+欢迎贡献！详见 [CONTRIBUTING.md](docs/CONTRIBUTING.md)（英文）了解：
+- 开发环境设置
+- 代码风格指南
+- 测试要求
+- Pull Request 流程
 
 ## 许可证
 
@@ -313,19 +349,22 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 ## 致谢
 
+使用以下工具构建：
 - [trafilatura](https://github.com/adbar/trafilatura) - 内容提取
-- [httpx](https://github.com/encode/httpx) - HTTP 客户端
-- [beautifulsoup4](https://www.crummy.com/software/BeautifulSoup/) - HTML 解析
-- [rich](https://github.com/Textualize/rich) - 终端 UI
+- [httpx](https://github.com/encode/httpx) - 支持 HTTP/2 的 HTTP 客户端
+- [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/) - HTML 解析
 
-## 链接
+## 支持
 
-- [文档](https://github.com/wowayou/web-similarity-audit)
-- [问题追踪](https://github.com/wowayou/web-similarity-audit/issues)
-- [更新日志](CHANGELOG.md)
-- [贡献指南](CONTRIBUTING.md)
-- [安全政策](SECURITY.md)
+- **文档**：https://github.com/wowayou/web-similarity-audit/tree/main/docs
+- **问题**：https://github.com/wowayou/web-similarity-audit/issues
+- **讨论**：https://github.com/wowayou/web-similarity-audit/discussions
+- **安全**：参见 [SECURITY.md](SECURITY.md)
+
+## 更新日志
+
+详见 [CHANGELOG.md](CHANGELOG.md) 了解版本历史。
 
 ---
 
-如有问题或建议，请[提交 issue](https://github.com/wowayou/web-similarity-audit/issues)。
+**为需要可解释、可复现重复内容审计的 SEO 专业人士打造。**
