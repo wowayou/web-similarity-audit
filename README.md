@@ -1,231 +1,249 @@
 # Web Similarity Audit
 
-A command-line tool for detecting duplicate and near-duplicate web pages with explicit failure reporting and detailed similarity analysis.
+[![CI](https://github.com/wowayou/web-similarity-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/wowayou/web-similarity-audit/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A command-line tool for detecting duplicate and near-duplicate web pages with detailed similarity analysis. Built for SEO professionals who need **explicit**, **deterministic**, and **explainable** content auditing.
 
 ## Features
 
-- **Multiple Input Modes**: Direct URLs, CSV files, or whole-site crawling (Screaming Frog style)
-- **Smart Content Extraction**: Uses trafilatura for reliable main content extraction
-- **Multi-Signal Analysis**: SHA-256, n-gram Jaccard, TF-IDF cosine similarity, and block overlap
-- **Template Detection**: Automatically identifies and removes common template blocks
-- **Priority Classification**: P1/P2/P3 with explicit trigger reasons for each pair
-- **Rich Progress Display**: Real-time progress bars with ETA for all phases
-- **Crash Recovery**: Resume interrupted runs with `--resume` flag
-- **Comprehensive Reports**: JSON, CSV, and Markdown outputs with detailed diagnostics
-- **CJK Support**: Handles English, Chinese, Japanese, and Korean text
-- **Safety Features**: SSRF protection, rate limiting, and explicit failure thresholds
+✨ **Whole-site crawling** mode like Screaming Frog  
+📊 **Multiple similarity signals**: SHA-256, n-gram Jaccard, TF-IDF, block overlap  
+🎯 **Template detection** for cleaner comparison  
+📈 **Progress bars** with time estimates  
+💾 **Crash recovery** with `--resume` flag  
+🌐 **CJK support** (Chinese, Japanese, Korean)  
+🔒 **SSRF protection** and rate limiting  
+📋 **Three output formats**: JSON, CSV, Markdown  
+🚫 **Explicit failures** - no silent fallbacks  
 
-## Installation
+## Quick Start
 
+### Installation
+
+```bash
+pipx install web-similarity-audit
+```
+
+Or with pip:
 ```bash
 pip install web-similarity-audit
 ```
 
-Or install from source:
+### Basic Usage
 
+Compare specific URLs:
 ```bash
-git clone https://github.com/wowayou/web-similarity-audit.git
-cd web-similarity-audit
-pip install -e .
-```
-
-## Quick Start
-
-### Compare specific URLs
-
-```bash
-# Direct URLs
 web-similarity-audit https://example.com/page1 https://example.com/page2
-
-# From CSV file
-web-similarity-audit urls.csv
 ```
 
-### Crawl entire website
+Crawl entire site:
+```bash
+web-similarity-audit --crawl https://example.com --max-pages 200
+```
+
+Resume interrupted audit:
+```bash
+web-similarity-audit --resume
+```
+
+## Usage Examples
+
+### Compare URLs from CSV
+
+Create a file `urls.csv`:
+```csv
+url
+https://example.com/page1
+https://example.com/page2
+https://example.com/page3
+```
+
+Run:
+```bash
+web-similarity-audit --csv urls.csv
+```
+
+### Full-site Audit with Custom Settings
 
 ```bash
-# Crawl up to 200 pages (default)
+web-similarity-audit \
+  --crawl https://example.com \
+  --max-pages 500 \
+  --concurrency 8 \
+  --per-host-limit 3.0 \
+  --output my-audit
+```
+
+### Check Specific Priority Level
+
+```bash
 web-similarity-audit --crawl https://example.com
-
-# Crawl up to 500 pages
-web-similarity-audit --crawl https://example.com --max-pages 500
-
-# Include external links
-web-similarity-audit --crawl https://example.com --follow-external
+cat audit-results/pairs.csv | grep ",P1,"
 ```
 
-### Resume interrupted run
+## Output
 
-```bash
-# Resume from saved state
-web-similarity-audit --resume --crawl https://example.com
+All results are saved to `audit-results/` (or custom directory with `--output`):
 
-# Force fresh start
-web-similarity-audit --no-resume --crawl https://example.com
-```
+- **`report.md`** - Human-readable summary with statistics
+- **`pages.json`** - Full page metadata (extraction status, word counts, hashes)
+- **`pairs.csv`** - All similarity comparisons with trigger reasons
+- **`blocks.json`** - Detected template blocks (if any)
 
-## CSV Input Format
-
-Create a CSV file with optional custom selectors and markers:
-
+Example `pairs.csv`:
 ```csv
-url,selector,start_marker,end_marker
-https://example.com/page1,article.content,<!-- content start -->,<!-- content end -->
-https://example.com/page2,main,BEGIN_MAIN,END_MAIN
-https://example.com/page3,,,
+url_a,url_b,priority,sha256_match,jaccard,tfidf,block_overlap,trigger
+https://example.com/a,https://example.com/b,P1,False,0.82,0.91,0.76,"tfidf>=0.85"
+https://example.com/c,https://example.com/d,P2,False,0.45,0.68,0.52,"jaccard>=0.40"
 ```
-
-Fields:
-- `url` (required): The page URL
-- `selector` (optional): CSS selector for main content
-- `start_marker` (optional): HTML comment marking content start
-- `end_marker` (optional): HTML comment marking content end
-
-## Output Reports
-
-All reports are written to `./audit-results/` (customizable with `--output-dir`):
-
-### 1. pages.json
-Detailed page-level data:
-```json
-{
-  "url": "https://example.com/page",
-  "status_code": 200,
-  "content_hash": "abc123...",
-  "extraction_method": "trafilatura",
-  "extraction_confident": true,
-  "text_length": 1523,
-  "text_length_no_template": 1205,
-  "has_cjk": false
-}
-```
-
-### 2. pairs.csv
-Pairwise similarity scores:
-```csv
-url_a,url_b,priority,sha256_match,jaccard,tfidf_cosine,block_overlap,jaccard_no_tpl,tfidf_no_tpl,trigger_reasons
-https://a.com,https://b.com,P1,false,0.78,0.91,0.65,0.72,0.89,"tfidf_cosine>=0.85; block_overlap>=0.50"
-```
-
-### 3. report.md
-Human-readable summary with:
-- Execution metadata
-- Failure warnings (fetch/extraction issues)
-- Priority breakdown
-- Top P1 pairs with trigger explanations
-- Template blocks detected
 
 ## Priority Levels
 
-- **P1 (High)**: Likely duplicates
-  - TF-IDF ≥ 0.85, OR
-  - Jaccard ≥ 0.25, OR
-  - Block overlap ≥ 0.50, OR
-  - SHA-256 match
-  
-- **P2 (Moderate)**: Possibly similar
-  - TF-IDF ≥ 0.70, OR
-  - Jaccard ≥ 0.15
+| Priority | Criteria | Meaning |
+|----------|----------|---------|
+| **P1** (High) | TF-IDF ≥ 0.85 **or** Jaccard ≥ 0.60 **or** SHA-256 match | Near-identical content, likely duplicates |
+| **P2** (Moderate) | Jaccard ≥ 0.40 **or** TF-IDF ≥ 0.70 **or** Block overlap ≥ 0.60 | Similar content, review recommended |
+| **P3** (Low) | Jaccard ≥ 0.25 **or** TF-IDF ≥ 0.50 | Distant similarity, informational |
 
-- **P3 (Low)**: Low similarity
-  - Everything else
+The `trigger` column shows exactly which signal crossed the threshold.
+
+## How It Works
+
+1. **Fetch** pages with retry logic and rate limiting
+2. **Extract** main content using trafilatura (with explicit failure reporting)
+3. **Detect** common template blocks across all pages
+4. **Compare** both raw and template-removed content
+5. **Classify** pairs into P1/P2/P3 based on multiple signals
+6. **Report** with full transparency on what triggered each match
+
+## Similarity Signals
+
+| Signal | Purpose | Range |
+|--------|---------|-------|
+| **SHA-256** | Exact duplicates | Boolean |
+| **n-gram Jaccard** | Token overlap (character 3-grams) | 0.0 - 1.0 |
+| **TF-IDF Cosine** | Semantic similarity | 0.0 - 1.0 |
+| **Block Overlap** | Shared paragraph-level content | 0.0 - 1.0 |
+
+All text is NFKC-normalized and lowercased before comparison.
 
 ## Command-Line Options
 
 ```
-usage: web-similarity-audit [-h] [--output-dir OUTPUT_DIR] [--crawl]
-                            [--max-pages MAX_PAGES] [--follow-external]
-                            [--max-response-size MAX_RESPONSE_SIZE]
-                            [--timeout TIMEOUT] [--rate-limit RATE_LIMIT]
-                            [--max-concurrent MAX_CONCURRENT]
-                            [--resume] [--no-resume]
-                            input [input ...]
+web-similarity-audit [OPTIONS] [URL...]
 
-Options:
-  --output-dir DIR          Output directory (default: ./audit-results)
-  --crawl                   Crawl entire website from starting URL
-  --max-pages N             Max pages to crawl (default: 200)
-  --follow-external         Follow external links in crawl mode
-  --max-response-size N     Max response size in bytes (default: 2MB)
-  --timeout SECONDS         HTTP timeout (default: 10)
-  --rate-limit RPS          Requests per second per host (default: 2)
-  --max-concurrent N        Max concurrent requests (default: 4)
-  --resume                  Resume from previous interrupted run
-  --no-resume               Force fresh start, ignore saved state
+Positional:
+  URL                   One or more URLs to compare (min 2, max 200)
+
+Mode Selection:
+  --csv PATH            Read URLs from CSV file (header: "url")
+  --crawl URL           Crawl website starting from URL
+  --max-pages N         Maximum pages to crawl (default: 200)
+  --follow-external     Follow links to external domains
+
+HTTP Settings:
+  --concurrency N       Concurrent requests (default: 4)
+  --per-host-limit N    Requests per second per host (default: 2.0)
+  --timeout N           Request timeout in seconds (default: 30)
+  --max-response-mb N   Max response size in MB (default: 10)
+
+Recovery:
+  --resume              Resume from saved state (.audit-state.json)
+  --no-resume           Force fresh start, ignore saved state
+
+Output:
+  --output DIR          Output directory (default: audit-results)
+
+Other:
+  --version             Show version and exit
+  --help                Show this help message
 ```
 
-## Failure Modes
+## Error Codes
 
-The tool exits with explicit codes:
+- **0**: Success
+- **1**: Invalid arguments (missing URLs, file not found)
+- **2**: HTTP error (connection failed, timeout, SSRF blocked)
+- **3**: Extraction error (all pages failed to extract content)
+- **4**: Processing error (similarity computation failed)
 
-- `0`: Success
-- `1`: Invalid input (bad URLs, missing file, etc.)
-- `2`: Too many fetch failures (>20%)
-- `3`: Too many extraction failures (>20%)
-- `4`: Fatal error or user interrupt
+## Design Principles
+
+1. **Explicit over implicit** - Report failures, don't hide them
+2. **Deterministic** - Same input always produces same output
+3. **Explainable** - Every decision has a reason you can inspect
+4. **Fail fast** - Validate early, exit with clear error codes
+5. **No silent fallbacks** - If extraction fails, we say so
+
+## Comparison with Commercial Tools
+
+| Feature | Web Similarity Audit | Screaming Frog | Sitebulb |
+|---------|---------------------|----------------|----------|
+| CLI automation | ✅ | ❌ | ❌ |
+| Reproducible runs | ✅ | ❌ | ❌ |
+| Explicit failures | ✅ | ❌ | ❌ |
+| Trigger reasons | ✅ | ❌ | ❌ |
+| Free & open source | ✅ | 🟡 (limited) | ❌ |
+| Whole-site crawl | ✅ | ✅ | ✅ |
+| Crash recovery | ✅ | ❌ | ❌ |
+| Progress indicators | ✅ | ✅ | ✅ |
+
+## Requirements
+
+- Python 3.10 or higher
+- 4 direct dependencies:
+  - `beautifulsoup4` - HTML parsing
+  - `httpx` - HTTP client with HTTP/2 and brotli
+  - `lxml` - Fast XML/HTML processing
+  - `trafilatura` - Content extraction
+  - `rich` - Terminal UI
+
+All dependencies are automatically installed.
 
 ## Development
 
-### Setup
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, and contribution guidelines.
 
 ```bash
 git clone https://github.com/wowayou/web-similarity-audit.git
 cd web-similarity-audit
 python -m venv venv
-source venv/bin/activate  # or `venv\Scripts\activate` on Windows
-pip install -e .
-```
-
-### Run Tests
-
-```bash
+source venv/bin/activate
+pip install -e '.[dev]'
 pytest tests/ -v
 ```
 
-### Project Structure
+## Roadmap
 
-```
-src/web_similarity_audit/
-├── cli.py              # Main entry point and CLI logic
-├── crawler.py          # Website crawling (Screaming Frog mode)
-├── fetcher.py          # HTTP fetching with SSRF protection
-├── extractor.py        # Main content extraction
-├── template.py         # Template block detection
-├── similarity.py       # Similarity scoring engine
-├── reporter.py         # Report generation
-├── state.py            # Crash recovery state management
-├── models.py           # Data models
-└── utils.py            # Text normalization utilities
-```
-
-## Use Cases
-
-1. **SEO Audits**: Find duplicate content issues across your website
-2. **Content Migration**: Verify pages were copied correctly
-3. **Quality Assurance**: Detect unintended page duplication
-4. **Competitive Analysis**: Compare similar pages across sites
-5. **Consulting Deliverables**: Provide evidence-backed reports to clients
-
-## Design Philosophy
-
-- **Explicit over implicit**: All failures are reported, not silently handled
-- **Explainable signals**: Every P1/P2 classification shows which thresholds triggered
-- **Deterministic**: No LLMs, same input always produces same output
-- **Reproducible**: CSV inputs and state files can be shared and re-run
-- **No silent fallbacks**: If main content extraction fails, it's flagged explicitly
+See [TODO.md](TODO.md) for planned features:
+- v0.3.0: Enhanced paraphrase detection, language-specific tokenization
+- v0.4.0: Sitemap parsing, canonical conflict detection, JavaScript rendering
+- Future: REST API, webhooks, distributed crawling
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License - see [LICENSE](LICENSE) file for details.
 
-## Contributing
+## Citation
 
-Issues and pull requests welcome at https://github.com/wowayou/web-similarity-audit
+If you use this tool in research or reporting, please cite:
+
+```bibtex
+@software{web_similarity_audit,
+  title = {Web Similarity Audit: CLI Tool for Duplicate Content Detection},
+  author = {Web Similarity Audit Contributors},
+  year = {2025},
+  url = {https://github.com/wowayou/web-similarity-audit}
+}
+```
 
 ## Acknowledgments
 
 Built with:
-- [trafilatura](https://github.com/adbar/trafilatura) for content extraction
-- [httpx](https://www.python-httpx.org/) for HTTP operations
-- [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) for HTML parsing
-- [rich](https://rich.readthedocs.io/) for terminal UI
+- [trafilatura](https://github.com/adbar/trafilatura) for robust content extraction
+- [httpx](https://github.com/encode/httpx) for modern async HTTP
+- [rich](https://github.com/Textualize/rich) for beautiful terminal UI
+
+Inspired by Screaming Frog's Near Duplicates feature and the need for transparent, reproducible SEO auditing.
