@@ -8,6 +8,8 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from bs4 import BeautifulSoup
 
+from .robots import DEFAULT_USER_AGENT, RobotsRules
+
 
 class WebsiteCrawler:
     """
@@ -46,7 +48,9 @@ class WebsiteCrawler:
         
         self.visited: set[str] = set()
         self.queue: deque[str] = deque()
-        self.disallowed: set[str] = set()
+        # Trademark: rules keyed by host netloc (per RFC 9309, robots.txt is
+        # host-scoped, not path-scoped).
+        self._robots: dict[str, RobotsRules] = {}
         
     def _normalize_url(self, url: str) -> str:
         """Normalize URL (remove fragment, trailing slash on non-root)."""
@@ -92,39 +96,43 @@ class WebsiteCrawler:
         if not self.follow_external and not self._is_same_domain(url, base_url):
             return False
         
-        # Check robots.txt disallow (basic)
-        if self.respect_robots and url in self.disallowed:
-            return False
+        # Check robots.txt (prefix-based, longest-match precedence)
+        if self.respect_robots:
+            rules = self._robots.get(parsed.netloc)
+            if rules is not None and not rules.can_fetch(url, DEFAULT_USER_AGENT):
+                return False
         
         return True
     
     async def _fetch_robots_txt(self, base_url: str) -> None:
-        """Fetch and parse robots.txt (basic implementation)."""
+        """Fetch and parse robots.txt for the host of *base_url*.
+
+        Failures are non-fatal: if robots.txt cannot be retrieved we treat the
+        host as unrestricted (the conventional, permissive default).
+        """
         parsed = urlparse(base_url)
-        robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
-        
+        host = parsed.netloc
+        if host in self._robots:
+            return
+
+        robots_url = f"{parsed.scheme}://{host}/robots.txt"
+        text = ""
+
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(robots_url, follow_redirects=True)
+                response = await client.get(
+                    robots_url,
+                    follow_redirects=True,
+                    headers={"User-Agent": DEFAULT_USER_AGENT},
+                )
                 if response.status_code == 200:
-                    # Very basic robots.txt parsing (only User-agent: * Disallow:)
-                    content = response.text
-                    in_user_agent_block = False
-                    for line in content.split("\n"):
-                        line = line.strip()
-                        if line.lower().startswith("user-agent:"):
-                            agent = line.split(":", 1)[1].strip()
-                            in_user_agent_block = agent == "*"
-                        elif in_user_agent_block and line.lower().startswith("disallow:"):
-                            path = line.split(":", 1)[1].strip()
-                            if path:
-                                # Convert to full URL pattern
-                                disallow_url = f"{parsed.scheme}://{parsed.netloc}{path}"
-                                self.disallowed.add(disallow_url)
+                    text = response.text
         except Exception:
-            # Ignore robots.txt fetch errors
-            pass
-    
+            # Network/parse errors: treat as no restrictions.
+            text = ""
+
+        self._robots[host] = RobotsRules.parse(text)
+        
     def _extract_links(self, html: str, base_url: str) -> list[str]:
         """Extract links from HTML."""
         soup = BeautifulSoup(html, "lxml")

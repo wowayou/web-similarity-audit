@@ -64,6 +64,11 @@ def parse_args():
         help="Follow external links in --crawl mode (default: internal only)",
     )
     parser.add_argument(
+        "--ignore-robots",
+        action="store_true",
+        help="Ignore robots.txt rules in --crawl mode (default: respect robots.txt)",
+    )
+    parser.add_argument(
         "--max-response-size",
         type=int,
         default=2 * 1024 * 1024,
@@ -358,18 +363,20 @@ async def crawl_website(
     timeout: float,
     rate_limit: float,
     max_concurrent: int,
+    respect_robots: bool = True,
 ) -> list[str]:
     """Crawl website and return discovered URLs."""
     console.print(f"\n[bold cyan]Crawling website starting from:[/bold cyan] {start_url}")
     console.print(f"  Max pages: {max_pages}")
-    console.print(f"  Follow external: {follow_external}\n")
+    console.print(f"  Follow external: {follow_external}")
+    console.print(f"  Respect robots.txt: {respect_robots}\n")
     
     crawler = WebsiteCrawler(
         max_pages=max_pages,
         timeout=timeout,
         rate_limit=rate_limit,
         max_concurrent=max_concurrent,
-        respect_robots=True,
+        respect_robots=respect_robots,
         follow_external=follow_external,
     )
     
@@ -458,6 +465,7 @@ def main():
                     timeout=args.timeout,
                     rate_limit=args.rate_limit,
                     max_concurrent=args.max_concurrent,
+                    respect_robots=not args.ignore_robots,
                 ))
                 
                 if len(urls) < 2:

@@ -15,7 +15,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - REST API mode
 - Enhanced paraphrase detection algorithms
 
-## [0.2.0] - 2025-01-XX
+## [0.2.1] - 2025-01-15
+
+### Added
+- **robots.txt compliance** (`robots.py`): proper RFC 9309 subset parsing with
+  `Allow`/`Disallow`, `*` wildcards, `$` end anchors, longest-match precedence
+  (Allow wins ties), per-agent groups, `Crawl-delay`, and `Sitemap` collection
+- `--ignore-robots` CLI flag for `--crawl` mode
+- 6 extraction-precedence and NFKC normalization tests (`tests/test_precedence.py`)
+- 16 robots.txt tests (`tests/test_robots.py`)
+- Report now separates **Fetch + extract time** from **Computation time**
+
+### Fixed
+- robots.txt `Disallow` used exact-URL matching, so paths like `/admin/` never
+  blocked `/admin/page`. Now uses correct prefix matching with longest-match rules
+- `Crawl-delay` was previously ignored entirely and `Allow` was not parsed
+
+### Changed
+- Extractor precedence (`selector` > `markers` > `trafilatura` > body fallback)
+  is now explicitly documented in the `ContentExtractor.extract` docstring
+
+## [0.2.0] - 2025-01-15
 
 ### Added
 - Progress bars with time estimation for all operations (crawl, fetch, extract, compare)
@@ -86,6 +106,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Database storage
 - Automated SEO decisions
 
-[Unreleased]: https://github.com/wowayou/web-similarity-audit/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/wowayou/web-similarity-audit/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/wowayou/web-similarity-audit/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/wowayou/web-similarity-audit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/wowayou/web-similarity-audit/releases/tag/v0.1.0

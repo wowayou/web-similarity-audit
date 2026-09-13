@@ -18,6 +18,7 @@ Commercial tools like Screaming Frog detect duplicates but lack:
 ## Features
 
 - 🔍 **Site-wide crawling** with automatic link discovery
+- 🤖 **robots.txt compliance** with Allow/Disallow, wildcards, and crawl-delay
 - 📊 **Multiple similarity signals**: SHA-256, Jaccard, TF-IDF, block overlap
 - 🎯 **Three-tier priority system**: P1 (high), P2 (moderate), P3 (low)
 - 🌐 **CJK language support**: Chinese, Japanese, Korean text handling
@@ -243,7 +244,7 @@ Bottleneck is network I/O (fetching), not computation. Use `--concurrency` and `
 - **Authentication**: Not supported (public pages only)
 - **Max pages**: O(n²) comparison limits practical max to ~1000 pages
 - **Paraphrase detection**: Limited (planned improvement with sequence alignment)
-- **robots.txt**: Not yet respected (planned for v0.3.0)
+- **Sitemap.xml**: Not yet parsed (planned for v0.3.0)
 
 ## Roadmap
 
@@ -251,7 +252,6 @@ Bottleneck is network I/O (fetching), not computation. Use `--concurrency` and `
 - Sitemap.xml parsing
 - Canonical link validation
 - Hreflang analysis
-- robots.txt compliance
 - Enhanced paraphrase detection
 
 **v0.4.0** (Q3 2025):

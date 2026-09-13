@@ -21,13 +21,15 @@ This document tracks planned features, improvements, and known issues.
   - Output: canonical-issues.csv
   - See: #TBD
 
-- [ ] **robots.txt compliance**
-  - Parse robots.txt before crawling
-  - Respect Disallow directives
-  - Honor Crawl-delay
-  - Support wildcards and $ end anchor
-  - Log skipped URLs with reason
-  - See: #TBD
+- [x] **robots.txt compliance**
+  - [x] Parse robots.txt before crawling
+  - [x] Respect Disallow/Allow directives (prefix + longest-match)
+  - [x] Wildcard (`*`) and end-anchor (`$`) support
+  - [x] Parse Crawl-delay (exposed on `RobotsRules.crawl_delay`)
+  - [x] Case-insensitive agent matching, per-host rule caching
+  - [x] `--ignore-robots` CLI escape hatch
+  - [ ] Automatically enforce crawl-delay as the request interval
+  - See: `src/web_similarity_audit/robots.py`
 
 ### Medium Priority
 
@@ -238,7 +240,7 @@ Track most-requested features from GitHub Issues and Discussions:
 | Web UI | 10 | Planned | v0.4.0 |
 | Canonical validation | 8 | Planned | v0.3.0 |
 | Custom thresholds | 6 | Planned | v0.4.0 |
-| robots.txt support | 5 | Planned | v0.3.0 |
+| robots.txt support | 5 | ✅ Done | v0.2.1 |
 | Hreflang validation | 4 | Planned | v0.3.0 |
 | Sitemap parsing | 4 | Planned | v0.3.0 |
 
