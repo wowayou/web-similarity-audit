@@ -6,38 +6,44 @@ labels: bug
 assignees: ''
 ---
 
-## Describe the bug
+## Bug Description
+
 A clear and concise description of what the bug is.
 
 ## To Reproduce
-Steps to reproduce the behavior:
-1. Run command: `web-similarity-audit ...`
-2. With input: (provide URLs or CSV content)
-3. See error
 
-## Expected behavior
+Steps to reproduce the behavior:
+1. Run command: `web-similarity-audit --crawl https://example.com`
+2. See error
+
+## Expected Behavior
+
 A clear and concise description of what you expected to happen.
 
-## Actual behavior
-What actually happened. Include error messages if any.
+## Actual Behavior
 
-## Output files
-If applicable, attach or paste relevant sections from:
-- `audit-results/report.md`
-- `audit-results/pages.json`
-- `.audit-state.json` (if crash recovery related)
+What actually happened.
 
 ## Environment
-- OS: [e.g. Ubuntu 22.04, Windows 11, macOS 14]
-- Python version: [e.g. 3.12.1]
-- Package version: [run `pip show web-similarity-audit`]
-- Installation method: [pip, pipx, or source]
 
-## Additional context
-Add any other context about the problem here.
+- OS: [e.g., Ubuntu 22.04, macOS 14, Windows 11]
+- Python version: [e.g., 3.10.12]
+- Package version: [e.g., 0.2.0]
+- Installation method: [e.g., pipx, pip, from source]
+
+## Logs/Error Messages
+
+```
+[Paste error output or logs here]
+```
+
+## Additional Context
+
+Add any other context about the problem here (screenshots, related issues, etc.)
 
 ## Checklist
+
+- [ ] I have checked the documentation
 - [ ] I have searched existing issues
-- [ ] I have included the command I ran
-- [ ] I have included the error message or unexpected output
-- [ ] I have included my environment details
+- [ ] I can reproduce this consistently
+- [ ] I am using the latest version
