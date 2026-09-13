@@ -6,6 +6,8 @@
 
 A command-line tool for detecting duplicate and near-duplicate web pages with detailed similarity analysis. Built for SEO professionals who need **explicit**, **deterministic**, and **explainable** content auditing.
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 ## Features
 
 ✨ **Whole-site crawling** mode like Screaming Frog  
