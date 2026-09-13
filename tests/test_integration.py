@@ -3,7 +3,7 @@
 from web_similarity_audit.extractor import ContentExtractor
 from web_similarity_audit.models import PageInput
 from web_similarity_audit.similarity import SimilarityCalculator
-from tests.fixtures.sample_pages import SAMPLE_PAGE_1, SAMPLE_PAGE_2, SAMPLE_PAGE_3
+from fixtures.sample_pages import SAMPLE_PAGE_1, SAMPLE_PAGE_2, SAMPLE_PAGE_3
 
 
 def test_similar_pages_detected():
