@@ -8,6 +8,17 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from rich.console import Console
+from rich.progress import (
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    BarColumn,
+    TaskProgressColumn,
+    TimeRemainingColumn,
+    TimeElapsedColumn,
+)
+
 from .crawler import WebsiteCrawler
 from .extractor import ContentExtractor
 from .fetcher import PageFetcher
@@ -15,6 +26,9 @@ from .models import PageInput, PageResult
 from .reporter import Reporter
 from .similarity import SimilarityCalculator
 from .template import TemplateDetector
+from .state import StateManager
+
+console = Console()
 
 
 def parse_args():
@@ -72,6 +86,16 @@ def parse_args():
         type=int,
         default=4,
         help="Maximum concurrent requests (default: 4)",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from previous interrupted run if state exists",
+    )
+    parser.add_argument(
+        "--no-resume",
+        action="store_true",
+        help="Force fresh start, ignore any saved state",
     )
     
     return parser.parse_args()
@@ -134,94 +158,169 @@ async def run_audit(
     page_inputs: list[PageInput],
     output_dir: Path,
     fetcher_config: dict,
+    start_time: Optional[float] = None,
+    resume_pages: Optional[list[PageResult]] = None,
 ) -> int:
     """
     Run the full audit pipeline.
     
+    Args:
+        page_inputs: List of pages to audit
+        output_dir: Output directory for reports
+        fetcher_config: Configuration for PageFetcher
+        start_time: Start time (for resume)
+        resume_pages: Already fetched pages (for resume)
+    
     Returns:
         Exit code
     """
-    start_time = time.time()
+    if start_time is None:
+        start_time = time.time()
     
-    # Phase 1: Fetch
-    print(f"Fetching {len(page_inputs)} pages...")
-    fetcher = PageFetcher(**fetcher_config)
-    urls = [p.url for p in page_inputs]
-    fetch_results = await fetcher.fetch_all(urls)
+    state_manager = StateManager(output_dir)
     
-    # Phase 2: Extract
-    print("Extracting main content...")
-    extractor = ContentExtractor()
-    pages: list[PageResult] = []
-    
-    for page_input, (url, html, status_code, error) in zip(page_inputs, fetch_results):
-        if html:
-            result = extractor.extract(html, page_input, status_code)
-        else:
-            result = PageResult(
-                url=url,
-                status_code=status_code,
-                error=error,
-                extraction_method="fetch_failed",
-                extraction_confident=False,
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    ) as progress:
+        
+        # Phase 1: Fetch (skip if resuming)
+        if resume_pages is None:
+            fetch_task = progress.add_task(
+                f"[cyan]Fetching {len(page_inputs)} pages...",
+                total=len(page_inputs)
             )
-        pages.append(result)
-    
-    # Check failure thresholds
-    fetch_failed = sum(1 for p in pages if p.status_code is None or p.status_code >= 400)
-    extraction_failed = sum(
-        1 for p in pages 
-        if p.extraction_method in ["failed", "selector_failed", "markers_failed"]
-    )
-    
-    fetch_rate = fetch_failed / len(pages)
-    extraction_rate = extraction_failed / len(pages)
-    
-    if fetch_rate > 0.2:
-        print(f"ERROR: {fetch_failed}/{len(pages)} pages unreachable (>{20}%)", file=sys.stderr)
-        # Still write reports
+            
+            fetcher = PageFetcher(**fetcher_config)
+            urls = [p.url for p in page_inputs]
+            
+            # Fetch with progress updates and periodic state saves
+            fetch_results = []
+            pages: list[PageResult] = []
+            extractor = ContentExtractor()
+            
+            for i, (page_input, url) in enumerate(zip(page_inputs, urls)):
+                result = await fetcher.fetch_all([url])
+                fetch_results.append(result[0])
+                
+                # Extract immediately for state saving
+                url_result, html, status_code, error = result[0]
+                if html:
+                    page = extractor.extract(html, page_input, status_code)
+                else:
+                    page = PageResult(
+                        url=url_result,
+                        status_code=status_code,
+                        error=error,
+                        extraction_method="fetch_failed",
+                        extraction_confident=False,
+                    )
+                pages.append(page)
+                
+                progress.update(fetch_task, advance=1)
+                
+                # Save state every 10 pages
+                if (i + 1) % 10 == 0:
+                    state_manager.save_state(
+                        start_url=page_inputs[0].url if page_inputs else None,
+                        fetched_urls=urls[:i+1],
+                        pages=pages,
+                        start_time=start_time,
+                    )
+            
+            progress.update(fetch_task, description="[green]✓ Fetching complete")
+        else:
+            # Resume from saved pages
+            pages = resume_pages
+            console.print(f"[yellow]↻ Resumed with {len(pages)} previously fetched pages[/yellow]")
+        
+        # Check failure thresholds
+        fetch_failed = sum(1 for p in pages if p.status_code is None or p.status_code >= 400)
+        extraction_failed = sum(
+            1 for p in pages 
+            if p.extraction_method in ["failed", "selector_failed", "markers_failed"]
+        )
+        
+        fetch_rate = fetch_failed / len(pages)
+        extraction_rate = extraction_failed / len(pages)
+        
+        if fetch_rate > 0.2:
+            console.print(f"[red]ERROR: {fetch_failed}/{len(pages)} pages unreachable (>20%)")
+            reporter = Reporter(output_dir)
+            reporter.write_pages_json(pages)
+            reporter.write_pairs_csv([])
+            reporter.write_markdown_report(pages, [], None, time.time() - start_time)
+            state_manager.clear_state()
+            return 2
+        
+        if extraction_rate > 0.2:
+            console.print(f"[red]ERROR: {extraction_failed}/{len(pages)} pages failed extraction (>20%)")
+            reporter = Reporter(output_dir)
+            reporter.write_pages_json(pages)
+            reporter.write_pairs_csv([])
+            reporter.write_markdown_report(pages, [], None, time.time() - start_time)
+            state_manager.clear_state()
+            return 3
+        
+        # Phase 3: Template detection
+        template_task = progress.add_task(
+            "[cyan]Detecting common template blocks...",
+            total=1
+        )
+        
+        template_detector = TemplateDetector(min_pages=5, threshold=0.6)
+        common_blocks = template_detector.detect_common_blocks(pages)
+        
+        if common_blocks is None:
+            progress.update(template_task, description=f"[yellow]⚠ Template detection disabled (n={len(pages)} < 5)")
+        elif len(common_blocks) == 0:
+            progress.update(template_task, description="[green]✓ No common blocks detected")
+        else:
+            progress.update(template_task, description=f"[green]✓ Detected {len(common_blocks)} common blocks")
+        
+        progress.update(template_task, advance=1)
+        
+        # Phase 4: Similarity computation
+        total_pairs = len(pages) * (len(pages) - 1) // 2
+        similarity_task = progress.add_task(
+            f"[cyan]Computing similarity for {total_pairs:,} pairs...",
+            total=total_pairs
+        )
+        
+        calculator = SimilarityCalculator()
+        scores = []
+        
+        for i in range(len(pages)):
+            for j in range(i + 1, len(pages)):
+                score = calculator.compute_pairwise(pages[i], pages[j], common_blocks)
+                scores.append(score)
+                progress.update(similarity_task, advance=1)
+        
+        progress.update(similarity_task, description="[green]✓ Similarity computation complete")
+        
+        # Phase 5: Report generation
+        report_task = progress.add_task(
+            f"[cyan]Generating reports...",
+            total=3
+        )
+        
         reporter = Reporter(output_dir)
         reporter.write_pages_json(pages)
-        reporter.write_pairs_csv([])
-        reporter.write_markdown_report(pages, [], None, time.time() - start_time)
-        return 2
+        progress.update(report_task, advance=1)
+        
+        reporter.write_pairs_csv(scores)
+        progress.update(report_task, advance=1)
+        
+        reporter.write_markdown_report(pages, scores, common_blocks, time.time() - start_time)
+        progress.update(report_task, advance=1, description="[green]✓ Reports generated")
     
-    if extraction_rate > 0.2:
-        print(f"ERROR: {extraction_failed}/{len(pages)} pages failed extraction (>{20}%)", file=sys.stderr)
-        reporter = Reporter(output_dir)
-        reporter.write_pages_json(pages)
-        reporter.write_pairs_csv([])
-        reporter.write_markdown_report(pages, [], None, time.time() - start_time)
-        return 3
-    
-    # Phase 3: Template detection
-    print("Detecting common template blocks...")
-    template_detector = TemplateDetector(min_pages=5, threshold=0.6)
-    common_blocks = template_detector.detect_common_blocks(pages)
-    
-    if common_blocks is None:
-        print(f"  Template detection disabled (n={len(pages)} < 5)")
-    elif len(common_blocks) == 0:
-        print(f"  No common blocks detected")
-    else:
-        print(f"  Detected {len(common_blocks)} common blocks")
-    
-    # Phase 4: Similarity computation
-    print(f"Computing pairwise similarity for {len(pages) * (len(pages) - 1) // 2} pairs...")
-    calculator = SimilarityCalculator()
-    scores: list[SimilarityScore] = []
-    
-    for i in range(len(pages)):
-        for j in range(i + 1, len(pages)):
-            score = calculator.compute_pairwise(pages[i], pages[j], common_blocks)
-            scores.append(score)
-    
-    # Phase 5: Report generation
-    print(f"Generating reports in {output_dir}...")
-    reporter = Reporter(output_dir)
-    reporter.write_pages_json(pages)
-    reporter.write_pairs_csv(scores)
-    reporter.write_markdown_report(pages, scores, common_blocks, time.time() - start_time)
+    # Clear state on success
+    state_manager.clear_state()
     
     # Summary
     elapsed = time.time() - start_time
@@ -229,11 +328,11 @@ async def run_audit(
     p2_count = sum(1 for s in scores if s.priority == "P2")
     p3_count = sum(1 for s in scores if s.priority == "P3")
     
-    print(f"\nCompleted in {elapsed:.2f}s")
-    print(f"  P1 (high): {p1_count}")
-    print(f"  P2 (moderate): {p2_count}")
-    print(f"  P3 (low): {p3_count}")
-    print(f"\nReports written to: {output_dir.absolute()}")
+    console.print(f"\n[bold green]✓ Completed in {elapsed:.2f}s[/bold green]")
+    console.print(f"  P1 (high): [red]{p1_count}[/red]")
+    console.print(f"  P2 (moderate): [yellow]{p2_count}[/yellow]")
+    console.print(f"  P3 (low): [dim]{p3_count}[/dim]")
+    console.print(f"\nReports written to: [cyan]{output_dir.absolute()}[/cyan]")
     
     return 0
 
@@ -247,10 +346,9 @@ async def crawl_website(
     max_concurrent: int,
 ) -> list[str]:
     """Crawl website and return discovered URLs."""
-    print(f"Crawling website starting from: {start_url}")
-    print(f"  Max pages: {max_pages}")
-    print(f"  Follow external: {follow_external}")
-    print()
+    console.print(f"\n[bold cyan]Crawling website starting from:[/bold cyan] {start_url}")
+    console.print(f"  Max pages: {max_pages}")
+    console.print(f"  Follow external: {follow_external}\n")
     
     crawler = WebsiteCrawler(
         max_pages=max_pages,
@@ -261,15 +359,34 @@ async def crawl_website(
         follow_external=follow_external,
     )
     
-    def progress_callback(count: int, url: str):
-        print(f"  [{count}/{max_pages}] {url}")
+    discovered_urls = []
     
-    urls = await crawler.crawl(start_url, progress_callback=progress_callback)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        
+        crawl_task = progress.add_task(
+            "[cyan]Crawling...",
+            total=max_pages
+        )
+        
+        def progress_callback(count: int, url: str):
+            discovered_urls.append(url)
+            progress.update(
+                crawl_task,
+                completed=count,
+                description=f"[cyan]Crawling... [dim]{url[:60]}...[/dim]"
+            )
+        
+        urls = await crawler.crawl(start_url, progress_callback=progress_callback)
+        progress.update(crawl_task, description=f"[green]✓ Crawl complete: {len(urls)} pages discovered")
     
-    print()
-    print(f"Crawl complete: discovered {len(urls)} pages")
-    print()
-    
+    console.print()
     return urls
 
 
@@ -277,53 +394,94 @@ def main():
     """Main entry point."""
     args = parse_args()
     
+    # Check for resume state
+    state_manager = StateManager(args.output_dir)
+    resume_state = None
+    
+    if args.no_resume:
+        # Force fresh start
+        if state_manager.has_state():
+            console.print("[yellow]Clearing previous state (--no-resume)[/yellow]")
+            state_manager.clear_state()
+    elif state_manager.has_state():
+        # Ask if want to resume
+        resume_info = state_manager.get_resume_info()
+        if resume_info:
+            elapsed_min = resume_info['elapsed_time'] / 60
+            console.print(f"\n[yellow]Found previous run:[/yellow]")
+            console.print(f"  Started: {resume_info.get('start_url', 'N/A')}")
+            console.print(f"  Fetched: {resume_info['fetched_pages']} pages")
+            console.print(f"  Elapsed: {elapsed_min:.1f} minutes ago")
+            
+            if args.resume:
+                resume_state = state_manager.load_state()
+                console.print("[green]Resuming from saved state...[/green]\n")
+            else:
+                console.print("[dim]Use --resume to continue, or --no-resume to start fresh[/dim]\n")
+    
     # Crawl mode
     if hasattr(args, 'crawl') and args.crawl:
         if len(args.input) != 1:
-            print("ERROR: --crawl mode requires exactly one starting URL", file=sys.stderr)
+            console.print("[red]ERROR: --crawl mode requires exactly one starting URL[/red]")
             return 1
         
         start_url = args.input[0]
         if not start_url.startswith(("http://", "https://")):
-            print(f"ERROR: Invalid URL: {start_url}", file=sys.stderr)
+            console.print(f"[red]ERROR: Invalid URL: {start_url}[/red]")
             return 1
         
-        try:
-            urls = asyncio.run(crawl_website(
-                start_url=start_url,
-                max_pages=args.max_pages,
-                follow_external=args.follow_external,
-                timeout=args.timeout,
-                rate_limit=args.rate_limit,
-                max_concurrent=args.max_concurrent,
-            ))
-            
-            if len(urls) < 2:
-                print(f"ERROR: Only discovered {len(urls)} page(s), need at least 2", file=sys.stderr)
-                return 1
-            
-            page_inputs = [PageInput(url=url) for url in urls]
-            
-        except KeyboardInterrupt:
-            print("\nCrawl interrupted by user", file=sys.stderr)
-            return 4
-        except Exception as e:
-            print(f"FATAL ERROR during crawl: {e}", file=sys.stderr)
-            import traceback
-            traceback.print_exc()
-            return 4
+        # Check if resuming crawl
+        if resume_state and resume_state.crawl_mode:
+            page_inputs = [PageInput(url=url) for url in resume_state.fetched_urls]
+            resume_pages = state_manager.pages_from_state(resume_state)
+            start_time = resume_state.start_time
+        else:
+            try:
+                urls = asyncio.run(crawl_website(
+                    start_url=start_url,
+                    max_pages=args.max_pages,
+                    follow_external=args.follow_external,
+                    timeout=args.timeout,
+                    rate_limit=args.rate_limit,
+                    max_concurrent=args.max_concurrent,
+                ))
+                
+                if len(urls) < 2:
+                    console.print(f"[red]ERROR: Only discovered {len(urls)} page(s), need at least 2[/red]")
+                    return 1
+                
+                page_inputs = [PageInput(url=url) for url in urls]
+                resume_pages = None
+                start_time = None
+                
+            except KeyboardInterrupt:
+                console.print("\n[yellow]Crawl interrupted by user[/yellow]")
+                return 4
+            except Exception as e:
+                console.print(f"[red]FATAL ERROR during crawl: {e}[/red]")
+                import traceback
+                traceback.print_exc()
+                return 4
     else:
         # Load URLs
-        page_inputs, error = load_urls(args.input)
-        if error:
-            print(f"ERROR: {error}", file=sys.stderr)
-            return 1
-        
-        # Validate
-        error = validate_urls(page_inputs)
-        if error:
-            print(f"ERROR: {error}", file=sys.stderr)
-            return 1
+        if resume_state and not resume_state.crawl_mode:
+            page_inputs = [PageInput(url=url) for url in resume_state.fetched_urls]
+            resume_pages = state_manager.pages_from_state(resume_state)
+            start_time = resume_state.start_time
+        else:
+            page_inputs, error = load_urls(args.input)
+            if error:
+                console.print(f"[red]ERROR: {error}[/red]")
+                return 1
+            
+            # Validate
+            error = validate_urls(page_inputs)
+            if error:
+                console.print(f"[red]ERROR: {error}[/red]")
+                return 1
+            
+            resume_pages = None
+            start_time = None
     
     # Run audit
     fetcher_config = {
@@ -334,13 +492,19 @@ def main():
     }
     
     try:
-        exit_code = asyncio.run(run_audit(page_inputs, args.output_dir, fetcher_config))
+        exit_code = asyncio.run(run_audit(
+            page_inputs, 
+            args.output_dir, 
+            fetcher_config,
+            start_time=start_time,
+            resume_pages=resume_pages,
+        ))
         return exit_code
     except KeyboardInterrupt:
-        print("\nInterrupted by user", file=sys.stderr)
+        console.print("\n[yellow]Interrupted by user - state saved for resume[/yellow]")
         return 4
     except Exception as e:
-        print(f"FATAL ERROR: {e}", file=sys.stderr)
+        console.print(f"[red]FATAL ERROR: {e}[/red]")
         import traceback
         traceback.print_exc()
         return 4
