@@ -14,12 +14,12 @@ security advisory or contact the maintainers with reproduction steps and impact.
 Only HTTP(S) URLs without credentials are accepted. Before each request and
 redirect, DNS answers are checked; any non-public answer (private, loopback,
 link-local, multicast, unspecified, reserved, or shared space) is rejected.
-Environment proxies are disabled. `--allow-private` disables this guard and is
-only for trusted intranet or local targets.
+The protected transport connects to the vetted IP while preserving the original
+Host/SNI for HTTP and TLS. Environment proxies are disabled. `--allow-private`
+disables this guard and is only for trusted intranet or local targets.
 
-Current protection is DNS preflight, not a network sandbox: the connector still
-resolves for its connection. Deployments accepting hostile URLs need outbound
-firewall rules as defense in depth.
+This is application-level protection, not a network sandbox. Deployments
+accepting hostile URLs still need outbound firewall rules as defense in depth.
 
 ## Resource controls
 
