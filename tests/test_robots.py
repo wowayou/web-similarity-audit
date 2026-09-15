@@ -156,3 +156,41 @@ def test_case_insensitive_agent_and_fields():
         "DISALLOW: /Secret\n"
     )
     assert rules.can_fetch("https://example.com/Secret") is False
+
+
+def test_empty_disallow_does_not_merge_next_group():
+    """`User-agent: *` + empty `Disallow:` (allow-all) is a common robots.txt
+    pattern for "allow everyone except one bad bot". The empty Disallow must
+    not swallow the following User-agent group, or the wildcard group inherits
+    `Disallow: /` and blocks our crawler from the whole site."""
+    rules = RobotsRules.parse(
+        "User-agent: *\n"
+        "Disallow:\n"
+        "User-agent: BadBot\n"
+        "Disallow: /\n"
+    )
+    assert rules.can_fetch("https://example.com/", DEFAULT_USER_AGENT) is True
+    assert rules.can_fetch("https://example.com/any/page", DEFAULT_USER_AGENT) is True
+    assert rules.can_fetch("https://example.com/", "badbot") is False
+    assert rules.can_fetch("https://example.com/any/page", "badbot") is False
+
+
+def test_empty_disallow_then_specific_disallow_in_same_group():
+    """An empty Disallow followed by a real rule keeps the real rule."""
+    rules = RobotsRules.parse(
+        "User-agent: *\n"
+        "Disallow:\n"
+        "Disallow: /admin\n"
+    )
+    assert rules.can_fetch("https://example.com/products") is True
+    assert rules.can_fetch("https://example.com/admin/tools") is False
+
+
+def test_empty_disallow_group_records_no_block_rules():
+    """An allow-all group must report as having no Disallow rules."""
+    rules = RobotsRules.parse(
+        "User-agent: *\n"
+        "Disallow:\n"
+    )
+    assert rules.allowed_paths_empty(DEFAULT_USER_AGENT) is True
+    assert rules.can_fetch("https://example.com/whatever") is True

@@ -84,9 +84,15 @@ class RobotsRules:
                     # Rules before any User-agent line are not valid; skip.
                     continue
                 if field_name == "disallow" and value == "":
-                    # "Disallow:" with empty value means "allow everything".
-                    # Represent as an explicit allow-all so it can still lose
-                    # to a more specific Disallow in a later group.
+                    # "Disallow:" (empty) explicitly allows everything. It
+                    # must still be recorded: as a zero-length Allow rule it
+                    # loses to any more specific Disallow, and marking the
+                    # group as started keeps the *next* User-agent line from
+                    # being merged into this group (RFC 9309 §2.1 grouping).
+                    allow_all = cls._compile_rule(allow=True, path="")
+                    for agent in current_agents:
+                        rules._groups.setdefault(agent, []).append(allow_all)
+                    group_has_rules = True
                     continue
                 rule = cls._compile_rule(allow=(field_name == "allow"), path=value)
                 for agent in current_agents:
