@@ -19,6 +19,7 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
+from . import __version__
 from .crawler import WebsiteCrawler
 from .extractor import ContentExtractor
 from .fetcher import PageFetcher, validate_http_url
@@ -61,6 +62,11 @@ def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description="Audit web page similarity with explicit failure reporting"
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
     )
     parser.add_argument(
         "input",
