@@ -85,11 +85,11 @@ JSON / CSV / Markdown 报告
 
 建议让 `FetchService` 成为异步上下文管理器，复用连接池；返回结构化 `FetchResult` 和稳定错误码；同时记录最终 URL、重定向链、内容类型、字节数与耗时。
 
-### P2：质量门禁当前不生效
+### P2：质量门禁仍需收紧
 
-Ruff 全仓有大量历史问题，CI 对 Ruff 与 mypy 都设置了 `continue-on-error`。本地 mypy 2.3.1 还触发 internal error。测试本身可通过，但静态门禁不能阻止回归。
+CI 已移除 Ruff/mypy 的 `continue-on-error`，并加入 CLI smoke test 与 Ubuntu Python 3.12 的打包检查；Ruff 当前采用明确的历史问题豁免基线。测试和静态检查可阻止新增回归，但本地 mypy 仍可能触发 internal error，完整 lint baseline 也尚未清理。
 
-建议先建立 lint baseline，只对新增/修改代码强制；分批清理后再全仓启用。固定并验证 mypy 版本，移除 `continue-on-error`，并把打包安装、CLI smoke test、Linux/Windows 路径行为加入 CI。
+建议固定并验证 mypy 版本，逐步消化豁免项，再把 build、wheel 安装及 Linux/Windows 路径行为扩展为必需门禁。
 
 ## 4. 目标架构
 
