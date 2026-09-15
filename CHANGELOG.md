@@ -15,7 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - REST API mode
 - Enhanced paraphrase detection algorithms
 
-## [0.2.1] - 2025-01-15
+## [0.2.2] - 2026-09-15
+
+### Fixed
+- Hardened network fetching, crawl recovery, extraction, robots parsing, and
+  report serialization. See the release notes below for subsequent details.
+
+## [0.2.1] - 2026-09-13
 
 ### Added
 - **robots.txt compliance** (`robots.py`): proper RFC 9309 subset parsing with
@@ -35,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extractor precedence (`selector` > `markers` > `trafilatura` > body fallback)
   is now explicitly documented in the `ContentExtractor.extract` docstring
 
-## [0.2.0] - 2025-01-15
+## [0.2.0] - 2026-09-13
 
 ### Added
 - Progress bars with time estimation for all operations (crawl, fetch, extract, compare)
@@ -53,7 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Progress bar display issues with large page counts
 - State file cleanup on successful completion
 
-## [0.1.0] - 2025-01-13
+## [0.1.0] - 2026-09-13
 
 ### Added
 - Initial release with core functionality
