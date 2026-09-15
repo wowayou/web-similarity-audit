@@ -193,6 +193,7 @@ class PageFetcher:
         *,
         require_html: bool = True,
         user_agent: str = USER_AGENT,
+        follow_redirects: bool = True,
     ) -> tuple[Optional[str], Optional[int], Optional[str]]:
         """Fetch one URL and return ``(text, status, error)``."""
         try:
@@ -207,7 +208,7 @@ class PageFetcher:
             transport = self._transport()
             client_kwargs: dict = {
                 "timeout": httpx.Timeout(self.timeout),
-                "follow_redirects": True,
+                "follow_redirects": follow_redirects,
                 "max_redirects": 3,
                 "trust_env": False,
             }

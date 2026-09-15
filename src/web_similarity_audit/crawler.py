@@ -133,6 +133,7 @@ class WebsiteCrawler:
             robots_url,
             require_html=False,
             user_agent=USER_AGENT,
+            follow_redirects=False,
         )
         if status == 200 and body is not None:
             text = body

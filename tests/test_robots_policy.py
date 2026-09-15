@@ -10,9 +10,11 @@ class FakeFetcher:
     def __init__(self, robots_result):
         self.robots_result = robots_result
         self.minimum_intervals = {}
+        self.robots_kwargs = {}
 
     async def fetch(self, url, **kwargs):
         if url.endswith("/robots.txt"):
+            self.robots_kwargs = kwargs
             return self.robots_result
         return "<html><body>page</body></html>", 200, None
 
@@ -74,6 +76,7 @@ async def test_robots_redirect_denies_crawl(monkeypatch):
     assert crawler.robots_warnings == [
         "robots.txt unavailable for example.com (status 302); crawling denied"
     ]
+    assert fake.robots_kwargs["follow_redirects"] is False
 
 
 @pytest.mark.asyncio
