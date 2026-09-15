@@ -27,7 +27,7 @@ def test_readme_flags_are_cli_flags():
 def test_docs_do_not_reference_removed_high_level_api():
     files = [Path("README.md"), *Path("docs").glob("*.md")]
     files = [path for path in files if path.name != "EXECUTION_PLAN_2026-09-15.md"]
-    forbidden = ("from web_similarity_audit import Auditor", "--template-threshold")
+    forbidden = ("from web_similarity_audit import Auditor", "--template-threshold", "p1_count")
     for path in files:
         text = path.read_text(encoding="utf-8")
         assert not any(value in text for value in forbidden), path
