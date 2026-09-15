@@ -7,6 +7,20 @@ from typing import Optional
 
 from .models import PageResult, SimilarityScore
 
+_FAILED_METHODS = {"fetch_failed", "failed", "selector_failed", "markers_failed"}
+
+
+def _is_failed(page: PageResult) -> bool:
+    return page.extraction_method in _FAILED_METHODS
+
+
+def _is_uncertain(page: PageResult) -> bool:
+    return not page.extraction_confident and not _is_failed(page)
+
+
+def _escape_markdown(value: object) -> str:
+    return str(value).replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ")
+
 
 class Reporter:
     """Generate audit reports in multiple formats."""
@@ -22,8 +36,8 @@ class Reporter:
             "summary": {
                 "total": len(pages),
                 "successful": sum(1 for p in pages if p.extraction_confident),
-                "uncertain": sum(1 for p in pages if not p.extraction_confident and not p.error),
-                "failed": sum(1 for p in pages if p.error and p.extraction_method in ["failed", "selector_failed", "markers_failed"]),
+                "uncertain": sum(1 for p in pages if _is_uncertain(p)),
+                "failed": sum(1 for p in pages if _is_failed(p)),
             }
         }
         
@@ -72,8 +86,8 @@ class Reporter:
         p2 = [s for s in scores if s.priority == "P2"]
         p3 = [s for s in scores if s.priority == "P3"]
         
-        uncertain = [p for p in pages if not p.extraction_confident and not p.error]
-        failed = [p for p in pages if p.error and p.extraction_method in ["failed", "selector_failed", "markers_failed"]]
+        uncertain = [p for p in pages if _is_uncertain(p)]
+        failed = [p for p in pages if _is_failed(p)]
         
         lines = [
             "# Web Page Similarity Audit Report",
@@ -136,8 +150,10 @@ class Reporter:
                 "|-------|-------|-----------------|",
             ])
             for score in p1[:20]:  # Limit to first 20
-                reasons = "; ".join(score.trigger_reasons)
-                lines.append(f"| {score.url1} | {score.url2} | {reasons} |")
+                url1 = _escape_markdown(score.url1)
+                url2 = _escape_markdown(score.url2)
+                reasons = _escape_markdown("; ".join(score.trigger_reasons))
+                lines.append(f"| {url1} | {url2} | {reasons} |")
             if len(p1) > 20:
                 lines.append(f"| ... | ... | ({len(p1) - 20} more pairs) |")
             lines.append("")
@@ -151,7 +167,7 @@ class Reporter:
                 "",
             ])
             for page in uncertain:
-                lines.append(f"- {page.url}")
+                lines.append(f"- {_escape_markdown(page.url)}")
             lines.append("")
         
         # Failed extractions
@@ -163,7 +179,9 @@ class Reporter:
                 "",
             ])
             for page in failed:
-                lines.append(f"- {page.url}: {page.error}")
+                url = _escape_markdown(page.url)
+                error = _escape_markdown(page.error)
+                lines.append(f"- {url}: {error}")
             lines.append("")
         
         # Write

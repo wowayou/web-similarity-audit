@@ -81,9 +81,18 @@ class SimilarityScore:
             "jaccard_3gram": round(self.jaccard_3gram, 4),
             "tfidf_cosine": round(self.tfidf_cosine, 4),
             "block_overlap": round(self.block_overlap, 4),
-            "jaccard_3gram_clean": round(self.jaccard_3gram_clean, 4) if self.jaccard_3gram_clean else None,
-            "tfidf_cosine_clean": round(self.tfidf_cosine_clean, 4) if self.tfidf_cosine_clean else None,
-            "block_overlap_clean": round(self.block_overlap_clean, 4) if self.block_overlap_clean else None,
+            "jaccard_3gram_clean": (
+                round(self.jaccard_3gram_clean, 4)
+                if self.jaccard_3gram_clean is not None else None
+            ),
+            "tfidf_cosine_clean": (
+                round(self.tfidf_cosine_clean, 4)
+                if self.tfidf_cosine_clean is not None else None
+            ),
+            "block_overlap_clean": (
+                round(self.block_overlap_clean, 4)
+                if self.block_overlap_clean is not None else None
+            ),
             "priority": self.priority,
             "trigger_reasons": "; ".join(self.trigger_reasons) if self.trigger_reasons else "",
         }
