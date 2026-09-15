@@ -55,13 +55,78 @@ def validate_http_url(url: str) -> ParseResult:
     return parsed
 
 
+# Explicitly blocked IP space. Classification must not rest on
+# ``ipaddress.is_global`` alone: its semantics for shared space (e.g. CGNAT
+# 100.64.0.0/10) changed across interpreter releases (CVE-2024-4032), and the
+# project targets Python 3.10-3.12.
+_BLOCKED_IPV4_NETWORKS = tuple(
+    ipaddress.ip_network(network)
+    for network in (
+        "0.0.0.0/8",  # this network
+        "10.0.0.0/8",  # RFC1918 private
+        "100.64.0.0/10",  # CGNAT shared address space
+        "127.0.0.0/8",  # loopback
+        "169.254.0.0/16",  # link-local (cloud metadata endpoints)
+        "172.16.0.0/12",  # RFC1918 private
+        "192.0.0.0/24",  # IETF protocol assignments
+        "192.0.2.0/24",  # TEST-NET-1
+        "192.168.0.0/16",  # RFC1918 private
+        "198.18.0.0/15",  # benchmarking
+        "198.51.100.0/24",  # TEST-NET-2
+        "203.0.113.0/24",  # TEST-NET-3
+        "224.0.0.0/4",  # multicast
+        "240.0.0.0/4",  # reserved
+    )
+)
+_BLOCKED_IPV6_NETWORKS = tuple(
+    ipaddress.ip_network(network)
+    for network in (
+        "::/128",  # unspecified
+        "::1/128",  # loopback
+        "fe80::/10",  # link-local
+        "fc00::/7",  # unique local
+        "2001:db8::/32",  # documentation
+        "ff00::/8",  # multicast
+    )
+)
+_NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+
+
+def _is_blocked_ipv4(address: ipaddress.IPv4Address) -> bool:
+    return any(address in network for network in _BLOCKED_IPV4_NETWORKS)
+
+
 def is_public_ip(value: str) -> bool:
-    """Return whether *value* is globally routable unicast IP space."""
+    """Return whether *value* is globally routable unicast IP space.
+
+    Combines an explicit blocked-network table with ``is_global`` so the
+    security decision holds even on interpreters whose classification of
+    shared address space is outdated or changes again.
+    """
     try:
         address = ipaddress.ip_address(value)
-        return address.is_global and not address.is_multicast
     except ValueError:
         return False
+
+    if isinstance(address, ipaddress.IPv4Address):
+        return address.is_global and not _is_blocked_ipv4(address)
+
+    mapped = address.ipv4_mapped
+    if mapped is not None:
+        return mapped.is_global and not _is_blocked_ipv4(mapped)
+
+    if any(address in network for network in _BLOCKED_IPV6_NETWORKS):
+        return False
+    if not address.is_global:
+        return False
+
+    # A NAT64 literal routes through a gateway to the embedded IPv4 address,
+    # which may be private; judge the embedded address, not the prefix.
+    if address in _NAT64_PREFIX:
+        embedded = ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)
+        return not _is_blocked_ipv4(embedded)
+
+    return True
 
 
 class SSRFBlockedError(httpx.ConnectError):

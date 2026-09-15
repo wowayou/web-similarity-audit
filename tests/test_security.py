@@ -39,6 +39,24 @@ def test_non_public_address_classes_are_blocked():
         assert is_public_ip(address) is False
 
 
+def test_explicit_deny_list_blocks_version_sensitive_ranges():
+    """Ranges stdlib is_global has classified inconsistently across versions."""
+    for address in (
+        "100.64.0.1",  # CGNAT: CVE-2024-4032 changed is_global semantics
+        "198.18.0.1",  # benchmarking
+        "240.0.0.1",  # reserved
+        "64:ff9b::10.0.0.1",  # NAT64 embedding a private IPv4
+        "64:ff9b::169.254.169.254",  # NAT64 embedding a metadata endpoint
+        "::ffff:10.0.0.1",  # IPv4-mapped private
+    ):
+        assert is_public_ip(address) is False, address
+
+
+def test_mapped_and_nat64_public_targets_remain_allowed():
+    assert is_public_ip("::ffff:8.8.8.8") is True
+    assert is_public_ip("64:ff9b::808:808") is True  # NAT64 of 8.8.8.8
+
+
 @pytest.mark.asyncio
 async def test_crawler_uses_ssrf_protection_by_default():
     crawler = WebsiteCrawler(

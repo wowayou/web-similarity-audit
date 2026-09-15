@@ -27,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   above 3600 seconds are capped with a warning.
 - Gzip and deflate responses are now decoded with a streaming post-decompression
   limit; Brotli and unknown encodings remain rejected.
+- SSRF filtering now combines an explicit blocked-network table with
+  `ipaddress.is_global`, so shared space (CGNAT 100.64.0.0/10, benchmarking,
+  reserved) is rejected regardless of interpreter version (CVE-2024-4032
+  semantics). IPv4-mapped and NAT64 (`64:ff9b::/96`) addresses are judged by
+  their embedded IPv4 address.
 
 ## [0.2.1] - 2026-09-13
 
