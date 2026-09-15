@@ -1,12 +1,32 @@
 """State management for crash recovery."""
 
 import json
+import hashlib
 import time
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass, field, asdict
 
 from .models import PageResult
+from . import __version__
+
+
+STATE_SCHEMA_VERSION = 2
+
+
+class StateError(RuntimeError):
+    """Raised when a saved audit state cannot be resumed safely."""
+
+
+def input_digest(planned_urls: list[str], planned_inputs: list[dict]) -> str:
+    """Return a stable digest for the input plan captured in a state file."""
+    payload = json.dumps(
+        {"planned_urls": planned_urls, "planned_inputs": planned_inputs},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 @dataclass
@@ -15,6 +35,10 @@ class AuditState:
     start_url: Optional[str]
     start_time: float
     total_pages: int
+    schema_version: int
+    tool_version: str
+    config: dict
+    input_digest: str
     fetched_urls: list[str]
     pages_data: list[dict]
     output_dir: str
@@ -33,7 +57,25 @@ class AuditState:
     @classmethod
     def from_dict(cls, data: dict) -> "AuditState":
         """Create from dictionary."""
-        return cls(**data)
+        if not isinstance(data, dict):
+            raise StateError("state file must contain a JSON object; run with --no-resume")
+        version = data.get("schema_version", 1)
+        if version != STATE_SCHEMA_VERSION:
+            raise StateError(
+                f"state file schema {version} not supported, run with --no-resume"
+            )
+        required = {"tool_version", "config", "input_digest"}
+        missing = sorted(required - data.keys())
+        if missing:
+            raise StateError(
+                f"state file is missing {', '.join(missing)}; run with --no-resume"
+            )
+        try:
+            return cls(**data)
+        except (TypeError, KeyError) as exc:
+            raise StateError(
+                f"state file fields are invalid ({exc}); run with --no-resume"
+            ) from exc
 
 
 class StateManager:
@@ -53,11 +95,24 @@ class StateManager:
         start_time: Optional[float] = None,
         planned_urls: Optional[list[str]] = None,
         planned_inputs: Optional[list[dict]] = None,
+        config: Optional[dict] = None,
+        tool_version: str = __version__,
     ):
         """Save current audit state."""
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
+        snapshot_urls = (
+            planned_urls if planned_urls is not None else list(fetched_urls)
+        )
+        snapshot_inputs = planned_inputs or []
+        config_snapshot = dict(config or {})
+        config_snapshot.setdefault("crawl_mode", crawl_mode)
+        config_snapshot.setdefault("max_pages", max_pages)
         state = AuditState(
+            schema_version=STATE_SCHEMA_VERSION,
+            tool_version=tool_version,
+            config=config_snapshot,
+            input_digest=input_digest(snapshot_urls, snapshot_inputs),
             start_url=start_url,
             start_time=start_time or time.time(),
             total_pages=len(fetched_urls),
@@ -66,8 +121,8 @@ class StateManager:
             output_dir=str(self.output_dir),
             crawl_mode=crawl_mode,
             max_pages=max_pages,
-            planned_urls=planned_urls if planned_urls is not None else list(fetched_urls),
-            planned_inputs=planned_inputs or [],
+            planned_urls=snapshot_urls,
+            planned_inputs=snapshot_inputs,
         )
         
         # Write atomically
@@ -86,8 +141,24 @@ class StateManager:
             with open(self.state_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             return AuditState.from_dict(data)
-        except Exception:
-            return None
+        except json.JSONDecodeError as exc:
+            raise StateError(
+                f"state file is not valid JSON ({exc}); run with --no-resume"
+            ) from exc
+        except OSError as exc:
+            raise StateError(
+                f"state file could not be read ({exc}); run with --no-resume"
+            ) from exc
+
+    def config_differences(self, state: AuditState, config: dict) -> list[str]:
+        """Return human-readable differences between saved and current config."""
+        differences = []
+        for key in ("fetcher_config", "crawl_mode", "max_pages"):
+            saved = state.config.get(key)
+            current = config.get(key)
+            if saved != current:
+                differences.append(f"{key}: saved={saved!r}, current={current!r}")
+        return differences
     
     def clear_state(self):
         """Remove state file after successful completion."""

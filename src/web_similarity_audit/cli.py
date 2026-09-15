@@ -26,7 +26,7 @@ from .models import PageInput, PageResult
 from .reporter import Reporter
 from .similarity import SimilarityCalculator
 from .template import TemplateDetector
-from .state import AuditState, StateManager
+from .state import AuditState, StateError, StateManager
 
 console = Console()
 
@@ -214,6 +214,9 @@ async def run_audit(
     start_time: Optional[float] = None,
     resume_pages: Optional[list[PageResult]] = None,
     crawl_mode: bool = False,
+    max_pages: Optional[int] = None,
+    start_url: Optional[str] = None,
+    planned_inputs_snapshot: Optional[list[dict]] = None,
 ) -> int:
     """
     Run the full audit pipeline.
@@ -237,17 +240,27 @@ async def run_audit(
     planned_urls = list(dict.fromkeys(
         [p.url for p in (resume_pages or [])] + urls
     ))
-    planned_inputs = [
+    planned_inputs = planned_inputs_snapshot if planned_inputs_snapshot is not None else [
         {
             "url": p.url, "selector": p.selector,
             "start_marker": p.start_marker, "end_marker": p.end_marker,
         }
         for p in page_inputs
     ]
+    state_start_url = start_url or (
+        page_inputs[0].url if page_inputs else (pages[0].url if pages else None)
+    )
+    state_config = {
+        "fetcher_config": fetcher_config,
+        "crawl_mode": crawl_mode,
+        "max_pages": max_pages,
+    }
 
     def save_progress(pages: list[PageResult]):
         state_manager.save_state(
-            start_url=page_inputs[0].url if page_inputs else (pages[0].url if pages else None),
+            start_url=state_start_url,
+            max_pages=max_pages,
+            config=state_config,
             fetched_urls=[p.url for p in pages],
             pages=pages,
             crawl_mode=crawl_mode,
@@ -323,6 +336,8 @@ async def run_audit(
 
             progress.update(fetch_task, description="[green]✓ Fetching complete")
         
+        # Persist the complete fetched set before any threshold exit.
+        save_progress(pages)
         fetch_phase_time = time.time() - start_time
         
         # Check failure thresholds
@@ -353,7 +368,6 @@ async def run_audit(
                 pages, [], None, time.time() - start_time,
                 fetch_time=fetch_phase_time,
             )
-            state_manager.clear_state()
             return 2
         
         if extraction_rate > 0.2:
@@ -365,7 +379,6 @@ async def run_audit(
                 pages, [], None, time.time() - start_time,
                 fetch_time=fetch_phase_time,
             )
-            state_manager.clear_state()
             return 3
         
         # Phase 3: Template detection
@@ -512,6 +525,13 @@ def main():
     if option_error:
         console.print(f"[red]ERROR: {option_error}[/red]")
         return 1
+    fetcher_config = {
+        "max_response_size": args.max_response_size,
+        "timeout": args.timeout,
+        "rate_limit_per_host": args.rate_limit,
+        "max_concurrent": args.max_concurrent,
+        "allow_private": args.allow_private,
+    }
     
     # Check for resume state
     state_manager = StateManager(args.output_dir)
@@ -524,7 +544,11 @@ def main():
             state_manager.clear_state()
     elif state_manager.has_state():
         # Ask if want to resume
-        resume_info = state_manager.get_resume_info()
+        try:
+            resume_info = state_manager.get_resume_info()
+        except StateError as exc:
+            console.print(f"[red]ERROR: {exc}[/red]")
+            return 1
         if resume_info:
             elapsed_min = resume_info['elapsed_time'] / 60
             console.print(f"\n[yellow]Found previous run:[/yellow]")
@@ -533,7 +557,11 @@ def main():
             console.print(f"  Elapsed: {elapsed_min:.1f} minutes ago")
             
             if args.resume:
-                resume_state = state_manager.load_state()
+                try:
+                    resume_state = state_manager.load_state()
+                except StateError as exc:
+                    console.print(f"[red]ERROR: {exc}[/red]")
+                    return 1
                 console.print("[green]Resuming from saved state...[/green]\n")
             else:
                 console.print("[dim]Use --resume to continue, or --no-resume to start fresh[/dim]\n")
@@ -541,6 +569,16 @@ def main():
     crawl_mode = bool(
         args.crawl or (args.resume and resume_state and resume_state.crawl_mode)
     )
+    if resume_state:
+        resume_config = {
+            "fetcher_config": fetcher_config,
+            "crawl_mode": crawl_mode,
+            "max_pages": args.max_pages,
+        }
+        for difference in state_manager.config_differences(
+            resume_state, resume_config
+        ):
+            console.print(f"[yellow]WARNING: resume config differs ({difference})[/yellow]")
 
     # Crawl mode
     if crawl_mode:
@@ -625,13 +663,6 @@ def main():
             start_time = None
     
     # Run audit
-    fetcher_config = {
-        "max_response_size": args.max_response_size,
-        "timeout": args.timeout,
-        "rate_limit_per_host": args.rate_limit,
-        "max_concurrent": args.max_concurrent,
-        "allow_private": args.allow_private,
-    }
 
     try:
         exit_code = asyncio.run(run_audit(
@@ -641,6 +672,14 @@ def main():
             start_time=start_time,
             resume_pages=resume_pages,
             crawl_mode=crawl_mode,
+            max_pages=args.max_pages,
+            start_url=(
+                resume_state.start_url if resume_state
+                else (start_url if crawl_mode else (page_inputs[0].url if page_inputs else None))
+            ),
+            planned_inputs_snapshot=(
+                resume_state.planned_inputs if resume_state else None
+            ),
         ))
         return exit_code
     except KeyboardInterrupt:

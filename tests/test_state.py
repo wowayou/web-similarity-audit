@@ -1,9 +1,12 @@
 """Tests for crash-recovery state persistence (save/load round-trip)."""
 
 import time
+import json
+
+import pytest
 
 from web_similarity_audit.models import PageResult
-from web_similarity_audit.state import StateManager
+from web_similarity_audit.state import StateError, StateManager, input_digest
 
 
 def _sample_page(url: str, content: str) -> PageResult:
@@ -118,3 +121,46 @@ def test_fetch_failed_page_roundtrip(tmp_path):
     assert back.error == "connection refused"
     assert back.extraction_method == "fetch_failed"
     assert back.extraction_confident is False
+
+
+def test_state_roundtrip_records_schema_config_and_input_digest(tmp_path):
+    sm = StateManager(tmp_path)
+    planned_urls = ["https://example.com/a", "https://example.com/b"]
+    planned_inputs = [{"url": url, "selector": None} for url in planned_urls]
+    config = {
+        "fetcher_config": {"allow_private": False, "max_response_size": 1234},
+        "crawl_mode": False,
+        "max_pages": 20,
+    }
+
+    sm.save_state(
+        start_url=planned_urls[0],
+        fetched_urls=planned_urls[:1],
+        pages=[_sample_page(planned_urls[0], "content")],
+        planned_urls=planned_urls,
+        planned_inputs=planned_inputs,
+        config=config,
+        max_pages=20,
+    )
+
+    state = sm.load_state()
+    assert state.schema_version == 2
+    assert state.tool_version == "0.2.2"
+    assert state.config == config
+    assert state.input_digest == input_digest(planned_urls, planned_inputs)
+
+
+def test_schema_one_state_requires_no_resume(tmp_path):
+    sm = StateManager(tmp_path)
+    sm.state_file.write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+
+    with pytest.raises(StateError, match="schema 1 not supported"):
+        sm.load_state()
+
+
+def test_corrupt_state_requires_no_resume(tmp_path):
+    sm = StateManager(tmp_path)
+    sm.state_file.write_text("{not-json", encoding="utf-8")
+
+    with pytest.raises(StateError, match="not valid JSON"):
+        sm.load_state()

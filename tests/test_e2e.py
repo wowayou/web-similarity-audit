@@ -198,3 +198,53 @@ def test_cli_resume_with_nothing_remaining(local_site, tmp_path, monkeypatch):
 
     assert rc == 0
     assert _read_summary(out)["total"] == PAGE_COUNT
+
+
+def test_threshold_failure_keeps_state_for_resume(tmp_path, monkeypatch):
+    class AlwaysFailFetcher:
+        def __init__(self, **kwargs):
+            pass
+
+        async def fetch(self, url, **kwargs):
+            return None, 503, "unavailable"
+
+    monkeypatch.setattr("web_similarity_audit.cli.PageFetcher", AlwaysFailFetcher)
+    output_dir = tmp_path / "threshold"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "web-similarity-audit",
+            "https://example.com/a",
+            "https://example.com/b",
+            "--output-dir",
+            str(output_dir),
+            "--rate-limit",
+            "50",
+        ],
+    )
+
+    assert main() == 2
+    state = StateManager(output_dir).load_state()
+    assert state is not None
+    assert len(state.pages_data) == 2
+    assert output_dir.joinpath(".audit_state.json").exists()
+
+
+def test_cli_rejects_unsupported_state(tmp_path, monkeypatch):
+    output_dir = tmp_path / "bad-state"
+    output_dir.mkdir()
+    (output_dir / ".audit_state.json").write_text(
+        '{"schema_version": 1}', encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "web-similarity-audit",
+            "https://example.com/a",
+            "--output-dir",
+            str(output_dir),
+            "--resume",
+        ],
+    )
+
+    assert main() == 1
