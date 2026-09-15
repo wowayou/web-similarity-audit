@@ -122,14 +122,14 @@ InputAdapter ──→ AuditPlan ──→ DiscoveryService
 
 ## 5. 分阶段落地
 
-### 阶段 A：安全与正确性（下一版本，1–2 天）
+### 阶段 A：安全与正确性（0.2.2，已完成）
 
-- 实现解析一次并固定连接 IP 的网络后端，增加重绑定和重定向到私网测试。
-- 完成 robots 状态机、crawl-delay 与失败策略。
-- 给状态文件加 schema/version/config/input digest，损坏时显式报错。
-- 把 SECURITY.md 中过强或过期的承诺改为真实威胁模型。
+- 已实现解析一次并固定连接 IP 的网络后端，并覆盖重绑定和重定向到私网测试。
+- 已完成 robots 状态机、crawl-delay 与失败策略（429/3xx 刻意从严）。
+- 已加入状态 schema/version/config/input digest，损坏时显式报错。
+- 已将 SECURITY.md 的承诺收敛到真实威胁模型，并对压缩响应实施有界解压。
 
-验收：不可信 URL 测试矩阵通过；crawl/list/robots/sitemap 无网络旁路；恢复前后报告一致。
+验收：87 项 pytest、Ruff E/F/B 基线和 CLI smoke 已通过；package build 需在 CI 验证。
 
 ### 阶段 B：服务边界与性能（3–5 天）
 
