@@ -204,6 +204,8 @@ def validate_options(args) -> Optional[str]:
     for value, name in checks:
         if value <= 0:
             return f"{name} must be greater than zero"
+    if args.max_pages > 1000:
+        return "--max-pages cannot exceed 1000"
     return None
 
 
@@ -248,7 +250,9 @@ async def run_audit(
         for p in page_inputs
     ]
     state_start_url = start_url or (
-        page_inputs[0].url if page_inputs else (pages[0].url if pages else None)
+        page_inputs[0].url
+        if page_inputs
+        else (resume_pages[0].url if resume_pages else None)
     )
     state_config = {
         "fetcher_config": fetcher_config,

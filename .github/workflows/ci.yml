@@ -26,12 +26,19 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e .
-        pip install pytest pytest-asyncio pytest-cov
+        pip install build pytest pytest-asyncio pytest-cov
     
     - name: Run tests
       run: |
         pytest tests/ -v --cov=src/web_similarity_audit --cov-report=xml
     
+
+    - name: CLI smoke test
+      run: web-similarity-audit --help
+
+    - name: Build package
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+      run: python -m build
     - name: Upload coverage
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
       uses: codecov/codecov-action@v4
@@ -56,9 +63,7 @@ jobs:
         pip install -e .
     
     - name: Lint with ruff
-      run: ruff check src/ tests/
-      continue-on-error: true
+      run: ruff check --select E,F,B --ignore E501,F541,F401,B905 src/ tests/
     
     - name: Type check with mypy
       run: mypy src/web_similarity_audit --ignore-missing-imports
-      continue-on-error: true
