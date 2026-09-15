@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Hardened network fetching, crawl recovery, extraction, robots parsing, and
   report serialization. See the release notes below for subsequent details.
+- Robots failures now use explicit policy: 4xx responses allow crawling, while
+  5xx, network failures, HTTP 429, and redirects deny the host. The 429 and
+  redirect cases are intentionally stricter than RFC 9309.
+- Crawl-delay is enforced per host; negative values are ignored and values
+  above 3600 seconds are capped with a warning.
 
 ## [0.2.1] - 2026-09-13
 

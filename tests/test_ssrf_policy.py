@@ -30,7 +30,7 @@ def local_site(tmp_path):
         (root / name).write_text(
             f"<html><body><p>{name} content</p></body></html>", encoding="utf-8"
         )
-    (root / "robots.txt").write_text("User-agent: *\\nDisallow:\\n", encoding="utf-8")
+    (root / "robots.txt").write_text("User-agent: *\nDisallow:\n", encoding="utf-8")
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(root))
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)

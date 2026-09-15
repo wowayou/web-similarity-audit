@@ -7,8 +7,10 @@ from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
-from .fetcher import PageFetcher, USER_AGENT, validate_http_url
+from .fetcher import USER_AGENT, PageFetcher, validate_http_url
 from .robots import DEFAULT_USER_AGENT, RobotsRules
+
+MAX_CRAWL_DELAY_SECONDS = 3600.0
 
 
 class WebsiteCrawler:
@@ -55,6 +57,8 @@ class WebsiteCrawler:
         # Trademark: rules keyed by host netloc (per RFC 9309, robots.txt is
         # host-scoped, not path-scoped).
         self._robots: dict[str, RobotsRules] = {}
+        self._robots_denied: set[str] = set()
+        self.robots_warnings: list[str] = []
         
     def _normalize_url(self, url: str) -> str:
         """Normalize URL (remove fragment, trailing slash on non-root)."""
@@ -101,6 +105,8 @@ class WebsiteCrawler:
         
         # Check robots.txt (prefix-based, longest-match precedence)
         if self.respect_robots:
+            if parsed.netloc in self._robots_denied:
+                return False
             rules = self._robots.get(parsed.netloc)
             if rules is not None and not rules.can_fetch(url, DEFAULT_USER_AGENT):
                 return False
@@ -112,8 +118,8 @@ class WebsiteCrawler:
     ) -> None:
         """Fetch and parse robots.txt for the host of *base_url*.
 
-        Failures are non-fatal: if robots.txt cannot be retrieved we treat the
-        host as unrestricted (the conventional, permissive default).
+        A 4xx response is treated as no published rules. Network failures,
+        5xx responses, 429, and redirects deny crawling for the host.
         """
         parsed = urlparse(base_url)
         host = parsed.netloc
@@ -132,6 +138,33 @@ class WebsiteCrawler:
             text = body
 
         self._robots[host] = RobotsRules.parse(text)
+        unavailable = (
+            status is None
+            or status == 429
+            or status >= 500
+            or (status is not None and 300 <= status < 400)
+        )
+        if unavailable:
+            reason = f"status {status}" if status is not None else "unreachable"
+            self._robots_denied.add(host)
+            self.robots_warnings.append(
+                f"robots.txt unavailable for {host} ({reason}); crawling denied"
+            )
+            return
+        rules = self._robots[host]
+        if self.respect_robots and rules.crawl_delay is not None:
+            delay = rules.crawl_delay
+            if delay < 0:
+                self.robots_warnings.append(
+                    f"negative Crawl-delay for {host}; ignoring"
+                )
+            elif delay > MAX_CRAWL_DELAY_SECONDS:
+                self.robots_warnings.append(
+                    f"Crawl-delay for {host} exceeds {MAX_CRAWL_DELAY_SECONDS:g}s; capping"
+                )
+                fetcher.set_host_min_interval(host, MAX_CRAWL_DELAY_SECONDS)
+            else:
+                fetcher.set_host_min_interval(host, delay)
         
     def _extract_links(self, html: str, base_url: str) -> list[str]:
         """Extract links from HTML."""
@@ -168,6 +201,8 @@ class WebsiteCrawler:
         self.visited.clear()
         self.queue.clear()
         self._robots.clear()
+        self._robots_denied.clear()
+        self.robots_warnings.clear()
         start_url = self._normalize_url(start_url)
         self.queue.append(start_url)
         results: list[str] = []

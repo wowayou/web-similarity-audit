@@ -28,5 +28,11 @@ starts and enforces a fixed minimum interval; it is not a token bucket.
 Responses are streamed and limited to 2 MiB. Compressed-response handling is
 documented in the README and release notes.
 
+When robots.txt is respected, 4xx responses allow crawling because the host has
+not published usable rules. 5xx responses, network failures, HTTP 429, and
+redirect responses deny crawling for that host. The 429 and redirect cases are
+deliberately stricter than RFC 9309. Crawl-delay is enforced per host;
+negative values are ignored and values above 3600 seconds are capped.
+
 The six direct dependencies are beautifulsoup4, certifi, httpx, lxml,
 trafilatura, and rich.

@@ -156,6 +156,7 @@ class PageFetcher:
 
         self._host_locks: dict[str, asyncio.Lock] = {}
         self._host_last_request: dict[str, float] = {}
+        self._host_min_intervals: dict[str, float] = {}
         self._semaphore = asyncio.Semaphore(max_concurrent)
 
     async def _wait_for_rate_limit(self, host: str) -> None:
@@ -164,11 +165,21 @@ class PageFetcher:
         async with lock:
             loop = asyncio.get_running_loop()
             previous = self._host_last_request.get(host)
+            min_interval = max(
+                1.0 / self.rate_limit_per_host,
+                self._host_min_intervals.get(host, 0.0),
+            )
             if previous is not None:
-                delay = (1.0 / self.rate_limit_per_host) - (loop.time() - previous)
+                delay = min_interval - (loop.time() - previous)
                 if delay > 0:
                     await asyncio.sleep(delay)
             self._host_last_request[host] = loop.time()
+
+    def set_host_min_interval(self, host: str, seconds: float) -> None:
+        """Set a robots.txt-derived minimum interval for one host."""
+        if seconds < 0:
+            raise ValueError("host minimum interval cannot be negative")
+        self._host_min_intervals[host.lower()] = seconds
 
     def _transport(self) -> httpx.AsyncBaseTransport | None:
         if self.allow_private:

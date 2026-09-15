@@ -28,6 +28,12 @@ robots rules. Each page is fetched with retries, a per-host minimum interval,
 and a streamed response-size limit. Extraction tries a CSV selector, then CSV
 markers, then trafilatura, then a body fallback marked as uncertain.
 
+When robots are respected, a 4xx response (including 404) means no rules were
+published and crawling may continue. A 5xx response, network failure, 429, or
+redirect is treated as unavailable and denies crawling for that host; 429 and
+redirects are intentionally stricter than RFC 9309. Crawl-delay is enforced
+per host; negative values are ignored and values above one hour are capped.
+
 Pairs are classified with SHA-256, character-trigram Jaccard, pair-local
 TF-IDF cosine, and block overlap. The current thresholds are:
 

@@ -497,6 +497,8 @@ async def crawl_website(
             )
         
         urls = await crawler.crawl(start_url, progress_callback=progress_callback)
+        for warning in crawler.robots_warnings:
+            console.print(f"[yellow]WARNING: {warning}[/yellow]")
         progress.update(crawl_task, description=f"[green]✓ Crawl complete: {len(urls)} pages discovered")
     
     console.print()

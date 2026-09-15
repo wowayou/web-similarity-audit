@@ -26,6 +26,11 @@ CSV 必须含 `url` 列，也可含 `selector`、`start_marker` 和 `end_marker`
 trafilatura，最后是标记为不确定的 body fallback。比较使用 SHA-256、字符三元 Jaccard、
 两文档局部 TF-IDF 和块重叠。
 
+启用 robots 时，4xx（包括 404）表示站点没有发布可用规则，可以继续抓取。
+5xx、网络错误、429 或重定向会视为 robots 不可用并拒绝抓取该主机；其中
+429 和重定向是有意比 RFC 9309 更严格的策略。Crawl-delay 按主机执行；
+负值忽略，超过一小时的值会截断为一小时。
+
 | 优先级 | 触发条件 |
 | --- | --- |
 | P1 | 精确 hash；TF-IDF ≥ 0.85；Jaccard ≥ 0.70；块重叠 ≥ 0.80 |
