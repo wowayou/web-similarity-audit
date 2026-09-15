@@ -5,9 +5,9 @@ from collections import deque
 from typing import Optional
 from urllib.parse import urljoin, urlparse
 
-import httpx
 from bs4 import BeautifulSoup
 
+from .fetcher import PageFetcher, USER_AGENT, validate_http_url
 from .robots import DEFAULT_USER_AGENT, RobotsRules
 
 
@@ -27,6 +27,8 @@ class WebsiteCrawler:
         max_concurrent: int = 4,
         respect_robots: bool = True,
         follow_external: bool = False,
+        max_response_size: int = 2 * 1024 * 1024,
+        allow_private: bool = False,
     ):
         """
         Initialize crawler.
@@ -44,6 +46,8 @@ class WebsiteCrawler:
         self.rate_limit = rate_limit
         self.max_concurrent = max_concurrent
         self.respect_robots = respect_robots
+        self.max_response_size = max_response_size
+        self.allow_private = allow_private
         self.follow_external = follow_external
         
         self.visited: set[str] = set()
@@ -74,10 +78,9 @@ class WebsiteCrawler:
     
     def _should_crawl(self, url: str, base_url: str) -> bool:
         """Check if URL should be crawled."""
-        parsed = urlparse(url)
-        
-        # Must be http(s)
-        if parsed.scheme not in ("http", "https"):
+        try:
+            parsed = validate_http_url(url)
+        except ValueError:
             return False
         
         # Skip common non-HTML extensions
@@ -104,7 +107,9 @@ class WebsiteCrawler:
         
         return True
     
-    async def _fetch_robots_txt(self, base_url: str) -> None:
+    async def _fetch_robots_txt(
+        self, base_url: str, fetcher: PageFetcher
+    ) -> None:
         """Fetch and parse robots.txt for the host of *base_url*.
 
         Failures are non-fatal: if robots.txt cannot be retrieved we treat the
@@ -118,18 +123,13 @@ class WebsiteCrawler:
         robots_url = f"{parsed.scheme}://{host}/robots.txt"
         text = ""
 
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    robots_url,
-                    follow_redirects=True,
-                    headers={"User-Agent": DEFAULT_USER_AGENT},
-                )
-                if response.status_code == 200:
-                    text = response.text
-        except Exception:
-            # Network/parse errors: treat as no restrictions.
-            text = ""
+        body, status, _ = await fetcher.fetch(
+            robots_url,
+            require_html=False,
+            user_agent=USER_AGENT,
+        )
+        if status == 200 and body is not None:
+            text = body
 
         self._robots[host] = RobotsRules.parse(text)
         
@@ -164,71 +164,51 @@ class WebsiteCrawler:
         Returns:
             List of discovered URLs (including start_url)
         """
+        validate_http_url(start_url)
+        self.visited.clear()
+        self.queue.clear()
+        self._robots.clear()
         start_url = self._normalize_url(start_url)
         self.queue.append(start_url)
         results: list[str] = []
-        
-        # Fetch robots.txt
+        fetcher = PageFetcher(
+            max_response_size=self.max_response_size,
+            timeout=self.timeout,
+            max_retries=0,
+            rate_limit_per_host=self.rate_limit,
+            max_concurrent=self.max_concurrent,
+            allow_private=self.allow_private,
+        )
+
         if self.respect_robots:
-            await self._fetch_robots_txt(start_url)
+            await self._fetch_robots_txt(start_url, fetcher)
+            if not self._should_crawl(start_url, start_url):
+                return []
         
-        # Semaphore for concurrency control
-        semaphore = asyncio.Semaphore(self.max_concurrent)
-        
-        # Rate limiting
-        last_request_time = {}
-        rate_limit_lock = asyncio.Lock()
-        
-        async def rate_limited_fetch(url: str) -> tuple[str, Optional[str]]:
-            """Fetch with rate limiting per host."""
-            parsed = urlparse(url)
-            host = parsed.netloc
-            
-            async with rate_limit_lock:
-                if host in last_request_time:
-                    elapsed = asyncio.get_event_loop().time() - last_request_time[host]
-                    min_interval = 1.0 / self.rate_limit
-                    if elapsed < min_interval:
-                        await asyncio.sleep(min_interval - elapsed)
-                last_request_time[host] = asyncio.get_event_loop().time()
-            
-            try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
-                    response = await client.get(
-                        url,
-                        follow_redirects=True,
-                        headers={"User-Agent": "web-similarity-audit/0.1.0 (crawler)"},
-                    )
-                    if response.status_code == 200 and "text/html" in response.headers.get("content-type", ""):
-                        return url, response.text
-            except Exception:
-                pass
-            
-            return url, None
         
         async def process_url(url: str):
-            """Process a single URL."""
-            async with semaphore:
-                if url in self.visited or len(results) >= self.max_pages:
+            """Process a single URL through the shared protected fetcher."""
+            if url in self.visited or len(results) >= self.max_pages:
+                return
+
+            self.visited.add(url)
+            if self.respect_robots:
+                await self._fetch_robots_txt(url, fetcher)
+                if not self._should_crawl(url, start_url):
                     return
-                
-                self.visited.add(url)
-                
-                # Fetch
-                _, html = await rate_limited_fetch(url)
-                
-                if html:
-                    results.append(url)
-                    
-                    if progress_callback:
-                        progress_callback(len(results), url)
-                    
-                    # Extract and queue new links
-                    if len(results) < self.max_pages:
-                        links = self._extract_links(html, url)
-                        for link in links:
-                            if link not in self.visited and link not in self.queue:
-                                self.queue.append(link)
+
+            html, status, _ = await fetcher.fetch(url)
+            if html is not None and status == 200:
+                results.append(url)
+
+                if progress_callback:
+                    progress_callback(len(results), url)
+
+                if len(results) < self.max_pages:
+                    links = self._extract_links(html, url)
+                    for link in links:
+                        if link not in self.visited and link not in self.queue:
+                            self.queue.append(link)
         
         # BFS crawl
         while self.queue and len(results) < self.max_pages:
