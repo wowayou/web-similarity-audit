@@ -46,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Progress bars with time estimation for all operations (crawl, fetch, extract, compare)
 - Crash recovery with `--resume` flag to continue interrupted audits
-- State persistence in `.audit-state.json`
+- State persistence in `.audit_state.json`
 - Rich terminal UI with color-coded status messages
 - Detailed progress tracking for long-running operations
 
@@ -83,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Per-host rate limiting
   - Concurrent fetching with connection pooling
   - SSRF protection (blocks private IPs)
-  - HTTP/2 and Brotli support
+  - HTTP fetching with retries, rate limiting, and response-size limits
   - Configurable timeout and response size limits
 - Cross-platform support (Windows, macOS, Linux)
 - CJK (Chinese, Japanese, Korean) text support with NFKC normalization
