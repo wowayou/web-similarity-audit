@@ -157,7 +157,7 @@ class ContentExtractor:
         """
         for tag in element.find_all(_BLOCK_LEVEL_TAGS):
             tag.insert_after(NavigableString("\n"))
-        return element.get_text()
+        return str(element.get_text())
 
     def _clean_text(self, text: str) -> str:
         """Normalize and clean extracted text."""

@@ -31,7 +31,7 @@ class TemplateDetector:
             return None
         
         # Count block occurrences
-        block_counts = Counter()
+        block_counts: Counter[str] = Counter()
         for page in pages:
             # Use set to count each block once per page
             unique_blocks = set(page.blocks)

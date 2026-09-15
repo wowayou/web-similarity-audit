@@ -2,7 +2,7 @@
 
 import asyncio
 from collections import deque
-from typing import Optional
+from typing import Callable, Optional
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
@@ -174,6 +174,8 @@ class WebsiteCrawler:
         
         for anchor in soup.find_all("a", href=True):
             href = anchor["href"]
+            if not isinstance(href, str):
+                continue
             # Resolve relative URLs
             absolute_url = urljoin(base_url, href)
             normalized = self._normalize_url(absolute_url)
@@ -186,7 +188,7 @@ class WebsiteCrawler:
     async def crawl(
         self,
         start_url: str,
-        progress_callback: Optional[callable] = None,
+        progress_callback: Optional[Callable[[int, str], None]] = None,
     ) -> list[str]:
         """
         Crawl website starting from start_url.

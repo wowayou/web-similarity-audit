@@ -594,6 +594,9 @@ def main():
             resume_state.start_url
             if resume_state and resume_state.crawl_mode else args.input[0]
         )
+        if not isinstance(start_url, str):
+            console.print("[red]ERROR: no crawl start URL available[/red]")
+            return 1
         try:
             validate_http_url(start_url)
         except ValueError as exc:

@@ -62,15 +62,15 @@ class Reporter:
             return
         
         with open(path, "w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
+            dict_writer = csv.DictWriter(f, fieldnames=[
                 "url1", "url2", "priority", "sha256_match",
                 "jaccard_3gram", "tfidf_cosine", "block_overlap",
                 "jaccard_3gram_clean", "tfidf_cosine_clean", "block_overlap_clean",
                 "trigger_reasons"
             ])
-            writer.writeheader()
+            dict_writer.writeheader()
             for score in scores:
-                writer.writerow(score.to_dict())
+                dict_writer.writerow(score.to_dict())
     
     def write_markdown_report(
         self,
