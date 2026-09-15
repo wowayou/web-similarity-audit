@@ -226,3 +226,9 @@ async def test_compressed_expansion_obeys_response_limit(monkeypatch):
     assert html is None
     assert status == 200
     assert "exceeded 1024 bytes" in error
+
+
+def test_negative_host_interval_is_ignored():
+    fetcher = PageFetcher()
+    fetcher.set_host_min_interval("example.com", -1)
+    assert fetcher._host_min_intervals == {}

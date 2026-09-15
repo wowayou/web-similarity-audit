@@ -179,7 +179,7 @@ class PageFetcher:
     def set_host_min_interval(self, host: str, seconds: float) -> None:
         """Set a robots.txt-derived minimum interval for one host."""
         if seconds < 0:
-            raise ValueError("host minimum interval cannot be negative")
+            return
         self._host_min_intervals[host.lower()] = seconds
 
     def _transport(self) -> httpx.AsyncBaseTransport | None:
