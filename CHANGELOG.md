@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   redirect cases are intentionally stricter than RFC 9309.
 - Crawl-delay is enforced per host; negative values are ignored and values
   above 3600 seconds are capped with a warning.
+- Gzip and deflate responses are now decoded with a streaming post-decompression
+  limit; Brotli and unknown encodings remain rejected.
 
 ## [0.2.1] - 2026-09-13
 

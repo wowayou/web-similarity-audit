@@ -58,6 +58,10 @@ and `Reporter`; their current signatures are described in [docs/API.md](docs/API
 SSRF checks reject non-public DNS answers by default; `--allow-private` is only
 for trusted intranet or local targets. Responses are limited to 2 MiB by
 default. See [SECURITY.md](SECURITY.md).
+gzip and deflate responses are decoded with a streaming output limit. Brotli
+responses are rejected because the available decoder cannot enforce a bounded
+output. The limit applies after decompression, so compressed expansion cannot
+bypass the response-size guard.
 
 The current all-pairs comparison is O(n²); choose `--max-pages` accordingly.
 

@@ -1,6 +1,8 @@
 """Regression tests for network and output security boundaries."""
 
 import asyncio
+import gzip
+import zlib
 import json
 
 import httpx
@@ -103,13 +105,13 @@ async def test_fetch_all_honors_concurrency_limit(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_encoded_response_is_rejected_before_body_read(monkeypatch):
+async def test_brotli_response_is_rejected_before_body_read(monkeypatch):
     async def handler(request):
         return httpx.Response(
             200,
             headers={
                 "content-type": "text/html",
-                "content-encoding": "gzip",
+                "content-encoding": "br",
             },
             stream=_NeverReadStream(),
         )
@@ -118,7 +120,7 @@ async def test_encoded_response_is_rejected_before_body_read(monkeypatch):
     monkeypatch.setattr(fetcher, "_transport", lambda: httpx.MockTransport(handler))
     html, status, error = await fetcher.fetch("https://example.com/")
     assert (html, status) == (None, 200)
-    assert error == "Unsupported content encoding: gzip"
+    assert error == "Unsupported content encoding: br"
 
 
 def test_invalid_numeric_cli_option_fails_before_network(monkeypatch):
@@ -172,3 +174,55 @@ def test_clean_zero_scores_are_not_serialized_as_missing():
     assert data["jaccard_3gram_clean"] == 0.0
     assert data["tfidf_cosine_clean"] == 0.0
     assert data["block_overlap_clean"] == 0.0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("content_encoding", "compress"),
+    [("gzip", gzip.compress), ("deflate", zlib.compress)],
+)
+async def test_bounded_compression_decodes_supported_encodings(
+    monkeypatch, content_encoding, compress
+):
+    payload = b"<html><body>compressed page</body></html>"
+    encoded = compress(payload)
+
+    async def handler(request):
+        return httpx.Response(
+            200,
+            headers={
+                "content-type": "text/html",
+                "content-encoding": content_encoding,
+            },
+            stream=_ChunkStream([encoded]),
+        )
+
+    fetcher = PageFetcher(max_retries=0)
+    monkeypatch.setattr(fetcher, "_transport", lambda: httpx.MockTransport(handler))
+
+    html, status, error = await fetcher.fetch("https://example.com/")
+    assert (html, status, error) == (payload.decode(), 200, None)
+
+
+@pytest.mark.asyncio
+async def test_compressed_expansion_obeys_response_limit(monkeypatch):
+    payload = b"<html><body>" + (b"x" * 10000) + b"</body></html>"
+    encoded = gzip.compress(payload)
+
+    async def handler(request):
+        return httpx.Response(
+            200,
+            headers={
+                "content-type": "text/html",
+                "content-encoding": "gzip",
+            },
+            stream=_ChunkStream([encoded]),
+        )
+
+    fetcher = PageFetcher(max_response_size=1024, max_retries=0)
+    monkeypatch.setattr(fetcher, "_transport", lambda: httpx.MockTransport(handler))
+
+    html, status, error = await fetcher.fetch("https://example.com/")
+    assert html is None
+    assert status == 200
+    assert "exceeded 1024 bytes" in error

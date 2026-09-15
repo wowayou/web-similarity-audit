@@ -27,6 +27,9 @@ The default timeout is 10 seconds. Per-host rate limiting serializes request
 starts and enforces a fixed minimum interval; it is not a token bucket.
 Responses are streamed and limited to 2 MiB. Compressed-response handling is
 documented in the README and release notes.
+gzip and deflate are decoded incrementally with the same 2 MiB post-decompression
+limit. Brotli and other encodings are rejected because they do not provide a
+bounded decoder path.
 
 When robots.txt is respected, 4xx responses allow crawling because the host has
 not published usable rules. 5xx responses, network failures, HTTP 429, and

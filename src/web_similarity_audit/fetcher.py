@@ -7,6 +7,7 @@ import ipaddress
 import os
 import socket
 import ssl
+import zlib
 from functools import lru_cache
 from typing import Optional
 from urllib.parse import ParseResult, urlparse
@@ -229,18 +230,23 @@ class PageFetcher:
                                     else "text/plain,*/*;q=0.1"
                                 ),
                                 "Accept-Language": "en-US,en;q=0.9",
-                                "Accept-Encoding": "identity",
+                                "Accept-Encoding": "gzip, deflate",
                             },
                         ) as response:
                             content_encoding = response.headers.get(
                                 "content-encoding", "identity"
                             ).strip().lower()
-                            if content_encoding not in {"", "identity"}:
+                            if content_encoding not in {"", "identity", "gzip", "deflate"}:
                                 return (
                                     None,
                                     response.status_code,
                                     f"Unsupported content encoding: {content_encoding}",
                                 )
+                            decompressor = None
+                            if content_encoding == "gzip":
+                                decompressor = zlib.decompressobj(16 + zlib.MAX_WBITS)
+                            elif content_encoding == "deflate":
+                                decompressor = zlib.decompressobj()
 
                             content_type = response.headers.get("content-type", "")
                             media_type = content_type.partition(";")[0].strip().lower()
@@ -261,7 +267,8 @@ class PageFetcher:
                                 except ValueError:
                                     announced_size = None
                                 if (
-                                    announced_size is not None
+                                    content_encoding in {"", "identity"}
+                                    and announced_size is not None
                                     and announced_size > self.max_response_size
                                 ):
                                     return (
@@ -272,7 +279,21 @@ class PageFetcher:
 
                             chunks: list[bytes] = []
                             received = 0
-                            async for chunk in response.aiter_bytes():
+                            async for raw_chunk in response.aiter_raw():
+                                try:
+                                    if decompressor is None:
+                                        chunk = raw_chunk
+                                    else:
+                                        chunk = decompressor.decompress(
+                                            raw_chunk,
+                                            self.max_response_size - received + 1,
+                                        )
+                                except zlib.error as exc:
+                                    return (
+                                        None,
+                                        response.status_code,
+                                        f"Invalid {content_encoding} response: {exc}",
+                                    )
                                 received += len(chunk)
                                 if received > self.max_response_size:
                                     return (
@@ -281,7 +302,30 @@ class PageFetcher:
                                         "Response exceeded "
                                         f"{self.max_response_size} bytes",
                                     )
-                                chunks.append(chunk)
+                                if chunk:
+                                    chunks.append(chunk)
+
+                            if decompressor is not None:
+                                try:
+                                    tail = decompressor.flush(
+                                        self.max_response_size - received + 1
+                                    )
+                                except zlib.error as exc:
+                                    return (
+                                        None,
+                                        response.status_code,
+                                        f"Invalid {content_encoding} response: {exc}",
+                                    )
+                                received += len(tail)
+                                if received > self.max_response_size:
+                                    return (
+                                        None,
+                                        response.status_code,
+                                        "Response exceeded "
+                                        f"{self.max_response_size} bytes",
+                                    )
+                                if tail:
+                                    chunks.append(tail)
 
                             content = b"".join(chunks)
                             encoding = response.encoding or "utf-8"

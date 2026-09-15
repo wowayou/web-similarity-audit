@@ -49,6 +49,9 @@ trafilatura，最后是标记为不确定的 body fallback。比较使用 SHA-25
 
 默认 SSRF 检查拒绝非公网 DNS 结果；`--allow-private` 仅适用于可信内网或本地目标。
 默认响应上限为 2 MiB。全量两两比较为 O(n²)，应相应限制 `--max-pages`。
+gzip 和 deflate 响应会以流式方式解压，并对解压后的输出执行大小上限。
+Brotli 响应仍会拒绝，因为现有解码器无法提供有界输出。大小限制作用于
+解压后内容，压缩展开不能绕过该保护。
 
 需要 Python 3.10+ 和六个直接依赖：beautifulsoup4、certifi、httpx、lxml、trafilatura、rich。
 详见 [SECURITY.md](SECURITY.md)、[架构复盘](docs/ARCHITECTURE_REVIEW.md)、
