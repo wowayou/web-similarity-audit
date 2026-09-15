@@ -9,7 +9,7 @@ import socket
 import ssl
 import zlib
 from functools import lru_cache
-from typing import Optional
+from typing import Optional, cast
 from urllib.parse import ParseResult, urlparse
 
 import certifi
@@ -168,7 +168,9 @@ class SSRFProtectedTransport(httpx.AsyncHTTPTransport):
                 f"DNS resolution failed for {host}: {exc}", request=request
             ) from exc
 
-        addresses = {sockaddr[0] for _, _, _, _, sockaddr in addrinfo}
+        # typeshed widens the address to str | int; getaddrinfo always
+        # returns the textual IP form at runtime.
+        addresses = {cast(str, sockaddr[0]) for _, _, _, _, sockaddr in addrinfo}
         if not addresses:
             raise httpx.ConnectError(
                 f"DNS resolution returned no addresses for {host}", request=request
