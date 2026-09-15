@@ -104,7 +104,7 @@ async def test_redirect_to_private_address_is_rejected(monkeypatch):
         return [(2, 1, 6, "", (address, port))]
 
     async def redirecting_request(self, request):
-        if request.url.host == "a.example":
+        if request.headers["host"] == "a.example":
             return httpx.Response(
                 302, headers={"location": "http://b.example/"}, request=request
             )

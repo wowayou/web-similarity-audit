@@ -74,9 +74,9 @@ class SSRFProtectedTransport(httpx.AsyncHTTPTransport):
     transport disables environment proxies: a proxy would move DNS resolution
     outside this process and invalidate the local preflight check.
 
-    This is a DNS preflight, not a network sandbox. Deployments accepting
-    hostile URLs should also enforce outbound firewall rules because the
-    underlying connector performs its own DNS lookup after this check.
+    The outbound connection is pinned to a DNS answer that passed validation.
+    Deployments accepting hostile URLs should still enforce outbound firewall
+    rules as defense in depth.
     """
 
     def __init__(self) -> None:
@@ -115,6 +115,12 @@ class SSRFProtectedTransport(httpx.AsyncHTTPTransport):
                 request=request,
             )
 
+        # Connect to the vetted answer, not a second DNS lookup. HTTPX keeps
+        # the existing Host header; SNI and certificate validation retain the
+        # original hostname through the httpcore extension.
+        selected_address = sorted(addresses)[0]
+        request.url = request.url.copy_with(host=selected_address)
+        request.extensions["sni_hostname"] = host
         return await super().handle_async_request(request)
 
 
